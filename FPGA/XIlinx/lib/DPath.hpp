@@ -216,7 +216,7 @@ static void interleaved_row_block8(hls::stream<uint256_dt> &stm_in,
 
 
 	uint256_dt tmp_M[DMAX*N_CU*2];
-	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY latency=2
+	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY 
 
 	ap_uint<24> NTilesp1 = register_it<int>(NTiles+1);
 	ap_uint<24> id = 0;
@@ -287,7 +287,7 @@ static void row2col(hls::stream<uint256_dt> &in, hls::stream<uint256_dt> &out,
 	NTiles = B;
 
 	uint256_dt tmp_M[DMAX*DMAX/VFACTOR*2];
-	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY uram latency=2
+	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY uram 
 	uint256_dt tmp;
 
 	ap_uint<18> NTilesp1 = register_it<int>(B+1);
@@ -357,7 +357,7 @@ static void undo_interleaved_row_block8(hls::stream<uint256_dt> &stm_in, hls::st
 		default: {TileX=XBlocks; TileY=N_CU; NTiles = (B*N+ADJUST)>>SHIFT; break;}
 	}
 	uint256_dt tmp_M[DMAX*N_CU*2];
-	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY latency=2
+	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY 
 	ap_uint<24> NTilesp1 = register_it<int>(NTiles+1);
 
 	ap_uint<24> id = 0;
@@ -429,7 +429,7 @@ static void col2row(hls::stream<uint256_dt> &in, hls::stream<uint256_dt> &out0,
 
 
 	uint256_dt tmp_M[DMAX*DMAX/VFACTOR*2];
-	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY uram latency=2
+	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY uram 
 	uint256_dt tmp;
 
 	ap_uint<18> NTilesp1 = register_it<int>(B+1);
@@ -953,7 +953,7 @@ static void URAM_buffer(hls::stream<uint256_dt> &in_stm_1, hls::stream<uint256_d
 		int total_data, ap_uint<20> delay){
 
 	uint256_dt mem[MEM_SIZE];
-	#pragma HLS RESOURCE variable=mem core=XPM_MEMORY uram latency=2
+	#pragma HLS RESOURCE variable=mem core=XPM_MEMORY uram 
 	int total_itr = total_data + delay;
 	ap_uint<20> count = 0;
 

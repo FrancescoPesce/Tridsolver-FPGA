@@ -399,10 +399,10 @@ static void stencil_3d( hls::stream<uint256_dt> &rd_buffer,  hls::stream<uint256
     uint256_dt window_3[DMAX/VFACTOR];
     uint256_dt window_4[DMAX*DMAX/VFACTOR];
 
-    #pragma HLS RESOURCE variable=window_1 core=XPM_MEMORY uram latency=2
-    #pragma HLS RESOURCE variable=window_2 core=RAM_1P_BRAM latency=2
-    #pragma HLS RESOURCE variable=window_3 core=RAM_1P_BRAM latency=2
-    #pragma HLS RESOURCE variable=window_4 core=XPM_MEMORY uram latency=2
+    #pragma HLS RESOURCE variable=window_1 core=XPM_MEMORY uram 
+    #pragma HLS RESOURCE variable=window_2 core=RAM_1P_BRAM 
+    #pragma HLS RESOURCE variable=window_3 core=RAM_1P_BRAM 
+    #pragma HLS RESOURCE variable=window_4 core=XPM_MEMORY uram 
 
     uint256_dt s_1_1_2, s_1_2_1, s_1_1_1, s_1_1_1_b, s_1_1_1_f, s_1_0_1, s_1_1_0;
     uint256_dt update_a, update_b, update_c, update_d;

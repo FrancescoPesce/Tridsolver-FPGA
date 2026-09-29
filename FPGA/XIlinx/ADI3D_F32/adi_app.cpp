@@ -143,17 +143,19 @@ int main(int argc, char* argv[]) {
   float* h_cz = (float *)aligned_alloc(4096, total_size_bytes);
   float* h_acc = (float *)aligned_alloc(4096, total_size_bytes);
 
+	memset(h_u, 0, total_size_bytes);
+
 
   int num_cus = 1;
-  float** d1_u = (float**) aligned_alloc(4096, sizeof(float*) * num_cus);
-  float** d1_du =(float**) aligned_alloc(4096, sizeof(float*) * num_cus);
-  float** d1_acc1 = (float**) aligned_alloc(4096, sizeof(float*) * num_cus);
-  float** d1_acc2 = (float**) aligned_alloc(4096, sizeof(float*) * num_cus);
+	float** d1_u = (float**) malloc(sizeof(float*) * num_cus);
+	float** d1_du =(float**) malloc(sizeof(float*) * num_cus);
+	float** d1_acc1 = (float**) malloc(sizeof(float*) * num_cus);
+	float** d1_acc2 = (float**) malloc(sizeof(float*) * num_cus);
 
-  float** d2_u = (float**) aligned_alloc(4096, sizeof(float*) * num_cus);
-  float** d2_du =(float**) aligned_alloc(4096, sizeof(float*) * num_cus);
-  float** d2_acc1 = (float**) aligned_alloc(4096, sizeof(float*) * num_cus);
-  float** d2_acc2 = (float**) aligned_alloc(4096, sizeof(float*) * num_cus);
+	float** d2_u = (float**) malloc(sizeof(float*) * num_cus);
+	float** d2_du =(float**) malloc(sizeof(float*) * num_cus);
+	float** d2_acc1 = (float**) malloc(sizeof(float*) * num_cus);
+	float** d2_acc2 = (float**) malloc(sizeof(float*) * num_cus);
 
   for(int i = 0; i < num_cus; i++){
 	  d1_u[i]  = (float *)aligned_alloc(4096, total_size_bytes);
@@ -302,21 +304,42 @@ int main(int argc, char* argv[]) {
 
 //    cl::Event event;
 
-  auto devices = xcl::get_xil_devices();
-  auto device = devices[0];
   cl_int err;
+	auto devices = xcl::get_xil_devices();
+	if (devices.empty()) {
+		std::cerr << "Error: no Xilinx accelerator devices were found" << std::endl;
+		return EXIT_FAILURE;
+	}
+
+	auto selected_device = devices.end();
+	for (auto device_it = devices.begin(); device_it != devices.end(); ++device_it) {
+		std::string candidate_name;
+		OCL_CHECK(err, candidate_name = device_it->getInfo<CL_DEVICE_NAME>(&err));
+		std::cout << "Available Xilinx device: " << candidate_name << std::endl;
+		if (candidate_name.find("u280") != std::string::npos ||
+				candidate_name.find("U280") != std::string::npos) {
+			selected_device = device_it;
+		}
+	}
+	if (selected_device == devices.end()) {
+		std::cerr << "Error: ADI3D_F32 is built for a U280, but no U280 device was found"
+							<< std::endl;
+		return EXIT_FAILURE;
+	}
+
+	auto device = *selected_device;
+	devices.assign(1, device);
+	std::cout << "Selected device: "
+						<< device.getInfo<CL_DEVICE_NAME>(&err) << std::endl;
   OCL_CHECK(err, cl::Context context(device, NULL, NULL, NULL, &err));
   OCL_CHECK(
       err,
       cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE | CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &err));
-  OCL_CHECK(err,
-            std::string device_name = device.getInfo<CL_DEVICE_NAME>(&err));
 
 
   //Create Program and Kernel
   auto fileBuf = xcl::read_binary_file(binaryFile);
   cl::Program::Binaries bins{{fileBuf.data(), fileBuf.size()}};
-  devices.resize(1);
   auto start_p = std::chrono::high_resolution_clock::now();
   OCL_CHECK(err, cl::Program program(context, devices, bins, NULL, &err));
 

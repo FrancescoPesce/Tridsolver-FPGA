@@ -15,12 +15,12 @@
 # makefile-generator v1.0.3
 
 
-PLATFORM=/opt/xilinx/platforms/xilinx_u280_xdma_201920_3/xilinx_u280_xdma_201920_3.xpfm
-TARGET=sw_emu
+PLATFORM=/opt/xilinx/platforms/xilinx_u280_gen3x16_xdma_1_202211_1/xilinx_u280_gen3x16_xdma_1_202211_1.xpfm
+TARGET=hw
 
 CC=g++
 CC_CFLAGS=-Wall -O0 -g -std=c++11
-CC_LFLAGS=-L${XILINX_XRT}/lib/ -lOpenCL -lxilinxopencl -lpthread -lrt -lstdc++ -fopenmp -DVITIS_PLATFORM=xilinx_u280_xdma_201920_3
+CC_LFLAGS=-L${XILINX_XRT}/lib/ -lOpenCL -lxilinxopencl -lpthread -lrt -lstdc++ -fopenmp -DVITIS_PLATFORM=xilinx_u280_gen3x16_xdma_1_202211_1
 CC_INCDIR=-I${XILINX_XRT}/include/ -I${XILINX_VIVADO}/include/ -I../utility/
 
 KCC=v++
@@ -74,8 +74,9 @@ $(BUILD_DIR)%_$(TARGET).xclbin: $(BUILD_DIR)%.xo
 
 
 run: build
-ifeq ($(TARGET), sw_emu)
-	XCL_EMULATION_MODE=$(TARGET) $(APP) $(BUILD_DIR)$(K_SRC)_$(TARGET).xclbin $(APP_ARGS)
+ifeq ($(filter $(TARGET),sw_emu hw_emu),$(TARGET))
+	emconfigutil --platform $(PLATFORM) --od $(BUILD_DIR)
+	XCL_EMULATION_MODE=$(TARGET) LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libstdc++.so.6:$(XILINX_XRT)/lib/libxilinxopencl.so LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$(XILINX_XRT)/lib $(APP) $(BUILD_DIR)$(K_SRC)_$(TARGET).xclbin $(APP_ARGS)
 else
 	$(APP)  ./$(BUILD_DIR)$(K_SRC)_$(TARGET).xclbin $(APP_ARGS)
 endif
@@ -83,5 +84,6 @@ endif
 
 clean: 
 	rm -rf $(BUILD_DIR) $(TMP_DIR)
-
-
+	rm -rf *.log
+	rm -rf .Xil
+	rm -rf .ipcache
