@@ -1,0 +1,43 @@
+# --- Build artifacts ---
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Binary produced by Makefile
+evo-nano-3D
+evo-nano-3D.*
+evo-nano-3D.dSYM/
+
+# --- Logs / outputs produced by targets ---
+output/*
+!output/.gitkeep
+tabela.csv
+
+
+# NOTE: you have configs tracked; ignore only generated copies if you want
+# If Physicell_settings.xml is generated locally and shouldn't be committed:
+# config/PhysiCell_settings.xml
+
+
+
+# --- Archives / packages ---
+latest.zip
+latest.tar
+archives/*.zip
+archives/*.tar
+
+# --- OS / editor junk ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# --- Optional: build directories (if you add them later) ---
+build/
+bin/
