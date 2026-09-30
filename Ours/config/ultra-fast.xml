@@ -104,7 +104,7 @@
 	</parallel> 
 	
 	<save>
-		<folder>../../src/output</folder> <!-- use . for root --> 
+		<folder>output</folder> <!-- use . for root --> 
 
 		<full_data>
 			<interval units="min">1.0</interval>

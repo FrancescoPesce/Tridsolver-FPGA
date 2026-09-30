@@ -1,7 +1,14 @@
 VERSION := $(shell grep . VERSION.txt | cut -f1 -d:)
 PROGRAM_NAME := evo-nano-3D
 
-CC := g++-15
+# The 3-D LOD diffusion solver runs on the krnl_compute accelerator (U250, 3 compute units).
+# Source the Xilinx tools first (Vitis 2023.2 + XRT):  source ../source_vivado.sh
+#
+#   make                                  build the host executable
+#   make run [TARGET=hw|sw_emu|hw_emu]    run with bitstreams/binary_container_1.xclbin (hw)
+#                                         (override with XCLBIN=... and CONFIG=...)
+
+CC := g++
 # CC := g++-mp-7 # typical macports compiler name
 # CC := g++-7 # typical homebrew compiler name 
 
@@ -30,9 +37,24 @@ ARCH := native # best auto-tuning
 # ARCH := nocona #64-bit pentium 4 or later 
 
 # CFLAGS := -march=$(ARCH) -Ofast -s -fomit-frame-pointer -fopenmp -m64 -std=c++11
-CFLAGS := -march=$(ARCH) -O3 -fomit-frame-pointer -fopenmp -m64 -std=c++11 -g -Wl,-ld_classic
+CFLAGS := -march=$(ARCH) -O3 -fomit-frame-pointer -fopenmp -m64 -std=c++11 -g
 
-COMPILE_COMMAND := $(CC) $(CFLAGS) 
+# XRT OpenCL. libxilinxopencl is linked directly: no Xilinx OpenCL ICD is registered on this host.
+ifeq ($(filter clean data-cleanup zip tar unzip untar,$(MAKECMDGOALS)),)
+ifndef XILINX_XRT
+$(error XILINX_XRT is not set: run "source ../source_vivado.sh" first)
+endif
+endif
+XRT_INCDIR := -I$(XILINX_XRT)/include
+XRT_LFLAGS := -L$(XILINX_XRT)/lib -lxilinxopencl -lpthread -lrt
+
+COMPILE_COMMAND := $(CC) $(CFLAGS) $(XRT_INCDIR)
+
+# krnl_compute accelerator
+TARGET ?= hw
+PLATFORM ?= /opt/xilinx/platforms/xilinx_u250_gen3x16_xdma_4_1_202210_1/xilinx_u250_gen3x16_xdma_4_1_202210_1.xpfm
+XCLBIN ?= bitstreams/binary_container_1.xclbin
+CONFIG ?= ./config/PhysiCell_settings.xml
 
 BioFVM_OBJECTS := BioFVM_vector.o BioFVM_mesh.o BioFVM_microenvironment.o BioFVM_solvers.o BioFVM_matlab.o \
 BioFVM_utilities.o BioFVM_basic_agent.o BioFVM_MultiCellDS.o BioFVM_agent_container.o 
@@ -55,7 +77,16 @@ ALL_OBJECTS := $(PhysiCell_OBJECTS) $(PhysiCell_custom_module_OBJECTS)
 # compile the project 
 
 all: main.cpp $(ALL_OBJECTS)
-	$(COMPILE_COMMAND) -o $(PROGRAM_NAME) $(ALL_OBJECTS) main.cpp 
+	$(COMPILE_COMMAND) -o $(PROGRAM_NAME) $(ALL_OBJECTS) main.cpp $(XRT_LFLAGS)
+
+run: all
+	@test -f $(XCLBIN) || { echo "Missing $(XCLBIN)"; exit 1; }
+ifneq ($(filter sw_emu hw_emu,$(TARGET)),)
+	emconfigutil --platform $(PLATFORM) --od ./emconfig
+	EMCONFIG_PATH=./emconfig XCL_EMULATION_MODE=$(TARGET) ./$(PROGRAM_NAME) $(XCLBIN) $(CONFIG)
+else
+	./$(PROGRAM_NAME) $(XCLBIN) $(CONFIG)
+endif
 
 # PhysiCell core components	
 
@@ -174,6 +205,7 @@ utils.o: ./custom_modules/utils.cpp
 clean:
 	rm -rf *.o
 	rm -rf $(PROGRAM_NAME)*
+	rm -rf emconfig .run .Xil
 	
 data-cleanup:
 	rm -f *.mat

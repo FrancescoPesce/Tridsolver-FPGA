@@ -52,11 +52,17 @@
 #include "BioFVM_vector.h" 
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <ctime>
+#include <iomanip>
 #include <iostream>
 #include <omp.h>
 #include <string>
+
+// Per-step timing, printed like the krnl_compute version (Ours/BioFVM/BioFVM_solvers.cpp)
+#define DEBUG_PRINT 1
 
 namespace BioFVM{
 
@@ -103,16 +109,111 @@ int compute_voxel_idx(int i, int j, int k, int y_coord_size, int x_coord_size) {
     return ( k * y_coord_size + j ) * x_coord_size + i;
 }
 
+void print_timestamp() {
+	using namespace std::chrono;
+
+    auto now = system_clock::now();
+    auto now_time = system_clock::to_time_t(now);
+
+    auto ms = duration_cast<microseconds>(now.time_since_epoch()) % seconds(1);
+
+    std::tm tm = *std::localtime(&now_time);
+
+    std::cout << std::put_time(&tm, "%Y-%m-%dT%H:%M:%S")
+              << "." << std::setw(6) << std::setfill('0') << ms.count()
+              << '\n';
+}
+
+namespace {
+
+typedef std::chrono::high_resolution_clock::duration Duration;
+
+long long to_us( Duration d )
+{ return std::chrono::duration_cast<std::chrono::microseconds>( d ).count(); }
+
+// Runs `work`; with DEBUG_PRINT its duration is added to `total`
+template <class Work>
+void timed( Duration& total, Work work )
+{
+#if DEBUG_PRINT
+	const auto start = std::chrono::high_resolution_clock::now();
+	work();
+	total += std::chrono::high_resolution_clock::now() - start;
+#else
+	work();
+#endif
+}
+
+// Grid lines along a direction: `points` voxels per line, `stride` between them and the first
+// voxel of each line (BioFVM voxel index (k*ny + j)*nx + i)
+struct Sweep_Lines
+{
+	int direction;
+	size_t nx, ny, points, lines, stride;
+
+	Sweep_Lines( Cartesian_Mesh& mesh, int dir ) : direction( dir )
+	{
+		nx = mesh.x_coordinates.size();
+		ny = mesh.y_coordinates.size();
+		const size_t nz = mesh.z_coordinates.size();
+		switch( direction )
+		{
+			case Thomas_Accelerator::X: points = nx; lines = ny * nz; stride = 1; break;
+			case Thomas_Accelerator::Y: points = ny; lines = nx * nz; stride = nx; break;
+			default: points = nz; lines = nx * ny; stride = nx * ny; break;
+		}
+	}
+
+	size_t first_voxel( size_t line ) const
+	{
+		switch( direction )
+		{
+			case Thomas_Accelerator::X: return line * nx; // line = j + ny*k
+			case Thomas_Accelerator::Y: return ( line / nx ) * nx * ny + line % nx; // line = i + nx*k
+			default: return line; // line = i + nx*j
+		}
+	}
+};
+
+} // namespace
+
 /*
     3-D LOD step (BioFVM's algorithm) with the tridiagonal sweeps on the TDMA_batch kernel of
     FPGA/XIlinx/ThomasVsPcr/Thomas. The kernel solves float32 systems along rows only: every sweep
     gathers the grid lines of all substrates into rows and scatters the solution back, and the
     Dirichlet nodes are applied on the host between the sweeps, as in BioFVM. Grids the kernel
     cannot handle (more than 128 voxels along a direction) use BioFVM's CPU sweeps.
-    EVONANO_THOMAS_VERIFY=1 also runs the CPU step on a copy and reports the difference.
+
+    With DEBUG_PRINT the step is timed like the krnl_compute version (Ours/BioFVM/BioFVM_solvers.cpp):
+    std::chrono around each phase, with the device work of a phase finished before its timer stops,
+    printed in microseconds, plus wall-clock timestamps at the start and end of the step and of every
+    kernel execution (one per sweep). Phases repeated by the three sweeps are summed over the step:
+      Setup time                    coefficient vectors
+      Thomas setup time             configure(): buffers and coefficient rows when the grid changes
+      Host Dirichlet time           the four apply_dirichlet_conditions() (done by the kernel in Ours)
+      Density setup time            gather of the grid lines into rows
+      Host-to-Device transfer time  right-hand sides (and new coefficients)
+      Kernel time                   kernel calls
+      Device-to-Host transfer time  solutions
+      Density teardown time         scatter of the solutions into the grid
+      Compute time                  whole step
+    EVONANO_THOMAS_VERIFY=1 also runs the CPU step on a copy, outside the timed region, and reports
+    the difference.
 */
 void Microenvironment::compute( void )
 {
+	static const char* verify_env = std::getenv( "EVONANO_THOMAS_VERIFY" ); 
+	static const bool verify = verify_env != NULL && std::string( verify_env ) != "" && std::string( verify_env ) != "0"; 
+	std::vector< std::vector<double> > reference; 
+	if( verify )
+	{ reference = *p_density_vectors; }
+
+#if DEBUG_PRINT
+	auto start = std::chrono::high_resolution_clock::now();
+	std::cout << "Start compute: ";
+	print_timestamp();
+#endif
+
 	const int num_substrates = number_of_densities(); 
 
 	Thomas_Accelerator::Coefficients coefficients; 
@@ -123,9 +224,25 @@ void Microenvironment::compute( void )
 	for( int s = 0; s < num_substrates; s++ )
 	{ coefficients.point_diagonal[s] += 1.0; }
 
+#if DEBUG_PRINT
+	auto end_setup = std::chrono::high_resolution_clock::now();
+	auto duration_setup = std::chrono::duration_cast<std::chrono::microseconds>(end_setup - start);
+	std::cout << "Setup time: " << duration_setup.count() << " us" << std::endl;
+
+	auto start_thomas = std::chrono::high_resolution_clock::now();
+#endif
+
 	static std::string cpu_reason; 
 	std::string reason; 
-	if( !thomas_fpga.configure( mesh.x_coordinates.size(), mesh.y_coordinates.size(), mesh.z_coordinates.size(), coefficients, reason ) )
+	const bool on_fpga = thomas_fpga.configure( mesh.x_coordinates.size(), mesh.y_coordinates.size(), mesh.z_coordinates.size(), coefficients, reason ); 
+
+#if DEBUG_PRINT
+	auto end_thomas = std::chrono::high_resolution_clock::now();
+	auto duration_thomas = std::chrono::duration_cast<std::chrono::microseconds>(end_thomas - start_thomas);
+	std::cout << "Thomas setup time: " << duration_thomas.count() << " us" << std::endl;
+#endif
+
+	if( !on_fpga )
 	{
 		if( reason != cpu_reason )
 		{
@@ -133,32 +250,60 @@ void Microenvironment::compute( void )
 			cpu_reason = reason; 
 		}
 		lod_3d_cpu(); 
-		return; 
 	}
-	cpu_reason.clear(); 
-
-	static const char* verify_env = std::getenv( "EVONANO_THOMAS_VERIFY" ); 
-	static const bool verify = verify_env != NULL && std::string( verify_env ) != "" && std::string( verify_env ) != "0"; 
-	std::vector< std::vector<double> > reference; 
-	if( verify )
+	else
 	{
-		reference = *p_density_vectors; 
+		cpu_reason.clear(); 
+		Duration dirichlet( 0 ), density( 0 ), h2d( 0 ), kernel( 0 ), d2h( 0 ), teardown( 0 ); 
+
+		for( int direction = Thomas_Accelerator::X; direction <= Thomas_Accelerator::Z; direction++ )
+		{
+			timed( dirichlet, [&]{ apply_dirichlet_conditions(); } ); 
+			timed( density, [&]{ thomas_gather( direction ); } ); 
+			timed( h2d, [&]{ thomas_fpga.upload( direction ); } ); 
+
+#if DEBUG_PRINT
+			auto start_kernel = std::chrono::high_resolution_clock::now();
+			std::cout << "Start kernel: ";
+			print_timestamp();
+#endif
+			thomas_fpga.run( direction ); 
+#if DEBUG_PRINT
+			kernel += std::chrono::high_resolution_clock::now() - start_kernel; 
+			std::cout << "End kernel: ";
+			print_timestamp();
+#endif
+
+			timed( d2h, [&]{ thomas_fpga.download( direction ); } ); 
+			timed( teardown, [&]{ thomas_scatter( direction ); } ); 
+		}
+		timed( dirichlet, [&]{ apply_dirichlet_conditions(); } ); 
+
+#if DEBUG_PRINT
+		std::cout << "Host Dirichlet time: " << to_us( dirichlet ) << " us" << std::endl;
+		std::cout << "Density setup time: " << to_us( density ) << " us" << std::endl;
+		std::cout << "Host-to-Device transfer time: " << to_us( h2d ) << " us" << std::endl;
+		std::cout << "Kernel time: " << to_us( kernel ) << " us" << std::endl;
+		std::cout << "Device-to-Host transfer time: " << to_us( d2h ) << " us" << std::endl;
+		std::cout << "Density teardown time: " << to_us( teardown ) << " us" << std::endl;
+#endif
+	}
+
+#if DEBUG_PRINT
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+	std::cout << "Compute time: " << duration.count() << " us" << std::endl;
+	std::cout << "End compute: ";
+	print_timestamp();
+#endif
+
+	if( verify && on_fpga )
+	{
 		std::vector< std::vector<double> >* current = p_density_vectors; 
 		p_density_vectors = &reference; 
 		lod_3d_cpu(); 
 		p_density_vectors = current; 
-	}
 
-	apply_dirichlet_conditions();
-	thomas_sweep( Thomas_Accelerator::X ); 
-	apply_dirichlet_conditions();
-	thomas_sweep( Thomas_Accelerator::Y ); 
-	apply_dirichlet_conditions();
-	thomas_sweep( Thomas_Accelerator::Z ); 
-	apply_dirichlet_conditions();
-
-	if( verify )
-	{
 		// largest difference relative to the largest magnitude of each substrate
 		std::vector<double> max_diff( num_substrates, 0.0 ), max_value( num_substrates, 0.0 ); 
 		for( unsigned int n = 0; n < reference.size(); n++ )
@@ -178,42 +323,22 @@ void Microenvironment::compute( void )
 	}
 }
 
-// One LOD sweep on the accelerator: grid lines along `direction` -> kernel rows -> grid
-void Microenvironment::thomas_sweep( int direction )
+// Grid lines along `direction` -> accelerator rows
+void Microenvironment::thomas_gather( int direction )
 {
-	const size_t nx = mesh.x_coordinates.size(); 
-	const size_t ny = mesh.y_coordinates.size(); 
-	const size_t nz = mesh.z_coordinates.size(); 
+	const Sweep_Lines grid( mesh, direction ); 
 	const int num_substrates = number_of_densities(); 
-
-	// grid line -> first voxel; voxel stride along the line
-	size_t points, lines, stride; 
-	switch( direction )
-	{
-		case Thomas_Accelerator::X: points = nx; lines = ny * nz; stride = 1; break; 
-		case Thomas_Accelerator::Y: points = ny; lines = nx * nz; stride = nx; break; 
-		default: points = nz; lines = nx * ny; stride = nx * ny; break; 
-	}
-	auto first_voxel = [&]( size_t line ) -> size_t
-	{
-		switch( direction )
-		{
-			case Thomas_Accelerator::X: return line * nx; // line = j + ny*k
-			case Thomas_Accelerator::Y: return ( line / nx ) * nx * ny + line % nx; // line = i + nx*k
-			default: return line; // line = i + nx*j
-		}
-	}; 
 
 	#pragma omp parallel
 	{
 		std::vector<float*> rows( num_substrates ); 
 		#pragma omp for
-		for( long long line = 0; line < (long long) lines; line++ )
+		for( long long line = 0; line < (long long) grid.lines; line++ )
 		{
 			for( int s = 0; s < num_substrates; s++ )
 			{ rows[s] = thomas_fpga.rhs( direction, s, line ); }
-			size_t voxel = first_voxel( line ); 
-			for( size_t p = 0; p < points; p++, voxel += stride )
+			size_t voxel = grid.first_voxel( line ); 
+			for( size_t p = 0; p < grid.points; p++, voxel += grid.stride )
 			{
 				const std::vector<double>& density = (*p_density_vectors)[voxel]; 
 				for( int s = 0; s < num_substrates; s++ )
@@ -221,19 +346,24 @@ void Microenvironment::thomas_sweep( int direction )
 			}
 		}
 	}
+}
 
-	thomas_fpga.solve( direction ); 
+// Accelerator solutions -> grid lines along `direction`
+void Microenvironment::thomas_scatter( int direction )
+{
+	const Sweep_Lines grid( mesh, direction ); 
+	const int num_substrates = number_of_densities(); 
 
 	#pragma omp parallel
 	{
 		std::vector<const float*> rows( num_substrates ); 
 		#pragma omp for
-		for( long long line = 0; line < (long long) lines; line++ )
+		for( long long line = 0; line < (long long) grid.lines; line++ )
 		{
 			for( int s = 0; s < num_substrates; s++ )
 			{ rows[s] = thomas_fpga.solution( direction, s, line ); }
-			size_t voxel = first_voxel( line ); 
-			for( size_t p = 0; p < points; p++, voxel += stride )
+			size_t voxel = grid.first_voxel( line ); 
+			for( size_t p = 0; p < grid.points; p++, voxel += grid.stride )
 			{
 				std::vector<double>& density = (*p_density_vectors)[voxel]; 
 				for( int s = 0; s < num_substrates; s++ )

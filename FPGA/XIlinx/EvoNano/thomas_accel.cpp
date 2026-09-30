@@ -1,7 +1,6 @@
 #include "thomas_accel.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cstring>
 #include <iostream>
 
@@ -17,9 +16,6 @@ const size_t kMaxRows = 127 * 256;
 const size_t kBankBytes = 256ul << 20; // TDMA.ini connects every argument to one 256 MB HBM bank
 
 size_t round_up( size_t value, size_t multiple ) { return ( value + multiple - 1 ) / multiple * multiple; }
-
-double seconds_since( std::chrono::steady_clock::time_point start )
-{ return std::chrono::duration<double>( std::chrono::steady_clock::now() - start ).count(); }
 
 bool same( const Thomas_Accelerator::Coefficients& x, const Thomas_Accelerator::Coefficients& y )
 {
@@ -39,11 +35,6 @@ void Thomas_Accelerator::attach( cl::Context* context, cl::CommandQueue* queue, 
 
 void Thomas_Accelerator::release( void )
 {
-	if( solves_ > 0 )
-	{
-		std::cout << "Thomas FPGA summary: " << solves_ << " sweeps on TDMA_batch (" << seconds_
-		          << " s incl. transfers, " << kernel_seconds_ << " s kernel)" << std::endl;
-	}
 	release_buffers();
 	cus_.clear();
 	context_ = nullptr;
@@ -71,6 +62,7 @@ void Thomas_Accelerator::release_buffers( void )
 	}
 	for( Sweep& sweep : sweeps_ )
 	{ sweep = Sweep(); }
+	pending_upload_.clear();
 	configured_ = false;
 }
 
@@ -154,7 +146,6 @@ bool Thomas_Accelerator::configure( int nx, int ny, int nz, const Coefficients& 
 	}
 
 	cl_int err;
-	std::vector<cl::Memory> to_device;
 	for( int dir = 0; dir < 3; dir++ )
 	{
 		Sweep& sweep = sweeps_[dir];
@@ -208,12 +199,11 @@ bool Thomas_Accelerator::configure( int nx, int ny, int nz, const Coefficients& 
 			std::memset( chunk.d_ptr, 0, bytes );
 			OCL_CHECK( err, chunk.u_ptr = (float*) queue_->enqueueMapBuffer( chunk.u, CL_TRUE, CL_MAP_READ, 0, bytes, nullptr, nullptr, &err ) );
 
-			to_device.push_back( chunk.a );
-			to_device.push_back( chunk.b );
-			to_device.push_back( chunk.c );
+			pending_upload_.push_back( chunk.a );
+			pending_upload_.push_back( chunk.b );
+			pending_upload_.push_back( chunk.c );
 		}
 	}
-	OCL_CHECK( err, err = queue_->enqueueMigrateMemObjects( to_device, 0 ) );
 	OCL_CHECK( err, err = queue_->finish() );
 
 	nx_ = nx;
@@ -251,26 +241,26 @@ const float* Thomas_Accelerator::solution( int direction, int substrate, size_t 
 	return chunk.u_ptr + offset;
 }
 
-void Thomas_Accelerator::solve( int direction )
+void Thomas_Accelerator::upload( int direction )
 {
-	const auto start = std::chrono::steady_clock::now();
+	std::vector<cl::Memory> inputs;
+	inputs.swap( pending_upload_ );
+	for( Chunk& chunk : sweeps_[direction].chunks )
+	{ inputs.push_back( chunk.d ); }
+
+	cl_int err;
+	OCL_CHECK( err, err = queue_->enqueueMigrateMemObjects( inputs, 0 ) );
+	OCL_CHECK( err, err = queue_->finish() );
+}
+
+void Thomas_Accelerator::run( int direction )
+{
 	Sweep& sweep = sweeps_[direction];
 	cl_int err;
 
-	std::vector<cl::Memory> inputs, outputs;
+	// Arguments are captured at enqueue time: calls sharing a compute unit run one after the other.
 	for( Chunk& chunk : sweep.chunks )
 	{
-		inputs.push_back( chunk.d );
-		outputs.push_back( chunk.u );
-	}
-
-	// Arguments are captured at enqueue time: calls sharing a compute unit run one after the other.
-	std::vector<cl::Event> h2d( 1 ), kernels( sweep.chunks.size() );
-	cl::Event d2h;
-	OCL_CHECK( err, err = queue_->enqueueMigrateMemObjects( inputs, 0, nullptr, &h2d[0] ) );
-	for( size_t c = 0; c < sweep.chunks.size(); c++ )
-	{
-		Chunk& chunk = sweep.chunks[c];
 		cl::Kernel& k = cus_[chunk.cu];
 		OCL_CHECK( err, err = k.setArg( ARG_A, chunk.a ) );
 		OCL_CHECK( err, err = k.setArg( ARG_B, chunk.b ) );
@@ -281,24 +271,18 @@ void Thomas_Accelerator::solve( int direction )
 		OCL_CHECK( err, err = k.setArg( ARG_N, chunk.N ) );
 		OCL_CHECK( err, err = k.setArg( ARG_BATCH, chunk.B ) );
 		OCL_CHECK( err, err = k.setArg( ARG_ITERS, 1 ) );
-		OCL_CHECK( err, err = queue_->enqueueTask( k, &h2d, &kernels[c] ) );
+		OCL_CHECK( err, err = queue_->enqueueTask( k ) );
 	}
-	OCL_CHECK( err, err = queue_->enqueueMigrateMemObjects( outputs, CL_MIGRATE_MEM_OBJECT_HOST, &kernels, &d2h ) );
-	OCL_CHECK( err, err = d2h.wait() );
+	OCL_CHECK( err, err = queue_->finish() );
+}
 
-	cl_ulong first_start = ~0ul, last_end = 0;
-	bool have_profile = true;
-	for( cl::Event& e : kernels )
-	{
-		cl_ulong t_start = 0, t_end = 0;
-		have_profile = have_profile && e.getProfilingInfo( CL_PROFILING_COMMAND_START, &t_start ) == CL_SUCCESS
-		                            && e.getProfilingInfo( CL_PROFILING_COMMAND_END, &t_end ) == CL_SUCCESS;
-		first_start = std::min( first_start, t_start );
-		last_end = std::max( last_end, t_end );
-	}
-	if( have_profile && last_end > first_start )
-	{ kernel_seconds_ += ( last_end - first_start ) * 1e-9; }
+void Thomas_Accelerator::download( int direction )
+{
+	std::vector<cl::Memory> outputs;
+	for( Chunk& chunk : sweeps_[direction].chunks )
+	{ outputs.push_back( chunk.u ); }
 
-	seconds_ += seconds_since( start );
-	solves_++;
+	cl_int err;
+	OCL_CHECK( err, err = queue_->enqueueMigrateMemObjects( outputs, CL_MIGRATE_MEM_OBJECT_HOST ) );
+	OCL_CHECK( err, err = queue_->finish() );
 }

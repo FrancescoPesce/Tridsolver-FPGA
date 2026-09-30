@@ -16,7 +16,9 @@
     Here it solves the three sweeps of BioFVM's 3-D LOD step. For every direction each
     (substrate, grid line) pair is one row, padded to M with decoupled identity rows
     (a = c = 0, b = 1, d = 0). The coefficients only depend on the grid and the substrates and are
-    uploaded once; each sweep uploads d and downloads u. The rows are split into kernel calls of at
+    uploaded once, with the first upload(); each sweep uploads d and downloads u. upload(), run()
+    and download() return when their device work has completed (like the q->finish() calls of the
+    krnl_compute host), so the caller can time them. The rows are split into kernel calls of at
     most 32512 systems, spread over the compute units, and the buffers of all three sweeps stay on
     the device (TDMA.ini: one 256 MB HBM bank per argument).
 */
@@ -42,7 +44,7 @@ class Thomas_Accelerator
 	};
 
 	void attach( cl::Context* context, cl::CommandQueue* queue, const std::vector<cl::Kernel>& compute_units );
-	// Releases all OpenCL objects and prints a summary. Call before the OpenCL context is destroyed.
+	// Releases all OpenCL objects. Call before the OpenCL context is destroyed.
 	void release( void );
 
 	// Prepares the sweeps of an nx x ny x nz grid (no-op when nothing changed). Returns false,
@@ -50,9 +52,11 @@ class Thomas_Accelerator
 	bool configure( int nx, int ny, int nz, const Coefficients& coefficients, std::string& reason );
 
 	// Row of `substrate` along `direction` through grid line `line` (X: j + ny*k, Y: i + nx*k,
-	// Z: i + nx*j). rhs() is filled before solve(), solution() is read after it.
+	// Z: i + nx*j). A sweep is: fill rhs(), upload(), run(), download(), read solution().
 	float* rhs( int direction, int substrate, size_t line );
-	void solve( int direction );
+	void upload( int direction );   // host -> device: right-hand sides (and new coefficients)
+	void run( int direction );      // kernel calls
+	void download( int direction ); // device -> host: solutions
 	const float* solution( int direction, int substrate, size_t line );
 
  private:
@@ -87,9 +91,7 @@ class Thomas_Accelerator
 	int nx_ = 0, ny_ = 0, nz_ = 0;
 	Coefficients coefficients_;
 	Sweep sweeps_[3];
-
-	unsigned long solves_ = 0;
-	double seconds_ = 0.0, kernel_seconds_ = 0.0;
+	std::vector<cl::Memory> pending_upload_; // coefficient buffers of a new configuration
 };
 
 #endif

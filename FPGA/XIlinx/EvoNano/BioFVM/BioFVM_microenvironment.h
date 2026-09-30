@@ -139,7 +139,9 @@ class Microenvironment
 
 	// 3-D LOD step with the sweeps on the accelerator (BioFVM_solvers.cpp)
 	void compute( void );
-	void thomas_sweep( int direction );
+	// grid lines along a direction -> accelerator rows, and back
+	void thomas_gather( int direction );
+	void thomas_scatter( int direction );
 	// BioFVM's CPU LOD step (fallback and verification)
 	void lod_3d_cpu( void );
 	
