@@ -1,7 +1,16 @@
 VERSION := $(shell grep . VERSION.txt | cut -f1 -d:)
 PROGRAM_NAME := evo-nano-3D
 
-CC := g++-15
+# The sweeps of the 3-D LOD diffusion solver run on the TDMA_batch accelerator of
+# ../ThomasVsPcr/Thomas (U280). Source the Xilinx tools first (Vitis 2023.2 + XRT):
+#   source ../../../source_vivado.sh
+#
+#   make                                  build the host executable
+#   make run [TARGET=hw|sw_emu|hw_emu]    run with ../ThomasVsPcr/Thomas/build/TDMA_solver_$(TARGET).xclbin
+#                                         (override with XCLBIN=... and CONFIG=...)
+#   EVONANO_THOMAS_VERIFY=1 make run ...  also compare every step with BioFVM's CPU solver
+
+CC := g++
 # CC := g++-mp-7 # typical macports compiler name
 # CC := g++-7 # typical homebrew compiler name 
 
@@ -30,9 +39,27 @@ ARCH := native # best auto-tuning
 # ARCH := nocona #64-bit pentium 4 or later 
 
 # CFLAGS := -march=$(ARCH) -Ofast -s -fomit-frame-pointer -fopenmp -m64 -std=c++11
-CFLAGS := -march=$(ARCH) -O3 -fomit-frame-pointer -fopenmp -m64 -std=c++11 -g -Wl,-ld_classic
+CFLAGS := -march=$(ARCH) -O3 -fomit-frame-pointer -fopenmp -m64 -std=c++11 -g
 
-COMPILE_COMMAND := $(CC) $(CFLAGS) 
+# XRT OpenCL. libxilinxopencl is linked directly: no Xilinx OpenCL ICD is registered on this host.
+ifeq ($(filter clean data-cleanup zip tar unzip untar,$(MAKECMDGOALS)),)
+ifndef XILINX_XRT
+$(error XILINX_XRT is not set: run "source ../../../source_vivado.sh" first)
+endif
+endif
+XRT_INCDIR := -I$(XILINX_XRT)/include
+XRT_LFLAGS := -L$(XILINX_XRT)/lib -lxilinxopencl -lpthread -lrt
+
+COMPILE_COMMAND := $(CC) $(CFLAGS) $(XRT_INCDIR)
+
+# ThomasVsPcr/Thomas accelerator. ADI3D_F32 xclbins have the same file and kernel names but
+# are rejected at startup.
+TARGET ?= hw
+PLATFORM ?= /opt/xilinx/platforms/xilinx_u280_gen3x16_xdma_1_202211_1/xilinx_u280_gen3x16_xdma_1_202211_1.xpfm
+XCLBIN ?= ../ThomasVsPcr/Thomas/build/TDMA_solver_$(TARGET).xclbin
+CONFIG ?= ./config/PhysiCell_settings.xml
+
+ACCEL_OBJECTS := thomas_accel.o
 
 BioFVM_OBJECTS := BioFVM_vector.o BioFVM_mesh.o BioFVM_microenvironment.o BioFVM_solvers.o BioFVM_matlab.o \
 BioFVM_utilities.o BioFVM_basic_agent.o BioFVM_MultiCellDS.o BioFVM_agent_container.o 
@@ -50,12 +77,26 @@ PhysiCell_custom_module_OBJECTS := evo_nano_3D.o spexp.o csvlog.o cancc.o vascul
 pugixml_OBJECTS := pugixml.o
 
 PhysiCell_OBJECTS := $(BioFVM_OBJECTS)  $(pugixml_OBJECTS) $(PhysiCell_core_OBJECTS) $(PhysiCell_module_OBJECTS)
-ALL_OBJECTS := $(PhysiCell_OBJECTS) $(PhysiCell_custom_module_OBJECTS)
+ALL_OBJECTS := $(PhysiCell_OBJECTS) $(PhysiCell_custom_module_OBJECTS) $(ACCEL_OBJECTS)
 
 # compile the project 
 
 all: main.cpp $(ALL_OBJECTS)
-	$(COMPILE_COMMAND) -o $(PROGRAM_NAME) $(ALL_OBJECTS) main.cpp 
+	$(COMPILE_COMMAND) -o $(PROGRAM_NAME) $(ALL_OBJECTS) main.cpp $(XRT_LFLAGS)
+
+run: all
+	@test -f $(XCLBIN) || { echo "Missing $(XCLBIN): build it in ../ThomasVsPcr/Thomas (make build TARGET=$(TARGET))"; exit 1; }
+ifneq ($(filter sw_emu hw_emu,$(TARGET)),)
+	emconfigutil --platform $(PLATFORM) --od ./emconfig
+	EMCONFIG_PATH=./emconfig XCL_EMULATION_MODE=$(TARGET) ./$(PROGRAM_NAME) $(XCLBIN) $(CONFIG)
+else
+	./$(PROGRAM_NAME) $(XCLBIN) $(CONFIG)
+endif
+
+# ThomasVsPcr/Thomas host driver
+
+thomas_accel.o: ./thomas_accel.cpp ./thomas_accel.h ./vitis_common.h
+	$(COMPILE_COMMAND) -c ./thomas_accel.cpp
 
 # PhysiCell core components	
 
@@ -174,6 +215,7 @@ utils.o: ./custom_modules/utils.cpp
 clean:
 	rm -rf *.o
 	rm -rf $(PROGRAM_NAME)*
+	rm -rf emconfig .run .Xil
 	
 data-cleanup:
 	rm -f *.mat

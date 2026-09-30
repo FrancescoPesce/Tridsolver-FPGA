@@ -52,10 +52,7 @@
 #include "BioFVM_mesh.h"
 #include "BioFVM_agent_container.h"
 #include "BioFVM_MultiCellDS.h"
-#include "../vitis_common.h"
-#include <CL/cl2.hpp>
-
-typedef float real_t;
+#include "../thomas_accel.h"
 
 namespace BioFVM{
 
@@ -69,124 +66,8 @@ class Basic_Agent;
 class Microenvironment
 {
  private:
-    // OpenCL context, queue and kernel
-	cl::Context* context = nullptr;
-	cl::CommandQueue* q = nullptr;
-	std::array<cl::Kernel, NUM_CU> krnl_compute;
-
-	unsigned int curr_num_voxels = 0;
-	unsigned int curr_max_value_vector_size = 0; // max components in a voxel
-
-	int curr_z_coord_size = 0;
-	int curr_y_coord_size = 0;
-	int curr_x_coord_size = 0;
-	int curr_x_coord_padded_size = 0;
-	int curr_y_coord_padded_size = 0;
-	int curr_num_components = 0;
-
-	size_t cap_size_dir_general = 0;
-	size_t cap_size_dir_val_general = 0;
-
-	size_t cap_thomas_constant1_size_general = 0;
-
-	size_t cap_flat_thomas_array_size_x_general = 0;
-
-	size_t cap_flat_thomas_array_size_y_general = 0;
-
-	size_t cap_flat_thomas_array_size_z_general = 0;
-
-	size_t cap_flat_density_size_general = 0;
-
-	// Kernel buffers:
-	struct KernelBuffers {
-		bool cache_initialized = false;
-
-		// Computing Unit metadata
-		int cu_num_components = 0;
-
-		/*
-		=====================
-		===== DIRICHLET =====
-		=====================
-		*/
-		size_t cap_size_dir = 0;
-		size_t cap_size_dir_val = 0;
-
-		cl::Buffer buffer_apply_dirichlet;
-		cl::Buffer buffer_dirichlet_value;
-
-		cl::Buffer buffer_init_c1;
-		cl::Buffer buffer_init_c2;
-
-		char* ptr_apply_dirichlet = nullptr;
-		real_t* ptr_dirichlet_value = nullptr;
-
-		int* ptr_init_c1 = nullptr;
-		int* ptr_init_c2 = nullptr;
-
-		/*
-		=====================
-		=====  THOMAS   =====
-		=====================
-		*/
-		size_t cap_thomas_constant1_size = 0;
-		cl::Buffer buffer_thomas_constant1;
-		real_t* ptr_thomas_constant1 = nullptr;
-
-		/*
-		=====================
-		===== THOMAS  X =====
-		=====================
-		*/
-		size_t cap_flat_thomas_array_size_x = 0;
-
-		cl::Buffer buffer_thomas_denom_x;
-		cl::Buffer buffer_thomas_c_x;
-		
-		real_t* ptr_thomas_denom_x = nullptr;
-		real_t* ptr_thomas_c_x = nullptr;
-
-		/*
-		=====================
-		===== THOMAS  Y =====
-		=====================
-		*/
-		size_t cap_flat_thomas_array_size_y = 0;
-
-		cl::Buffer buffer_thomas_denom_y;
-		cl::Buffer buffer_thomas_c_y;
-
-		real_t* ptr_thomas_denom_y = nullptr;
-		real_t* ptr_thomas_c_y = nullptr;
-
-		/*
-		=====================
-		===== THOMAS  Z =====
-		=====================
-		*/
-		size_t cap_flat_thomas_array_size_z = 0;
-
-		cl::Buffer buffer_thomas_denom_z;
-		cl::Buffer buffer_thomas_c_z;
-
-		real_t* ptr_thomas_denom_z = nullptr;
-		real_t* ptr_thomas_c_z = nullptr;
-
-		/*
-		=====================
-		=====  DENSITY  =====
-		=====================
-		*/
-		size_t cap_flat_density_size = 0;
-
-		cl::Buffer buffer_density_PING;
-		cl::Buffer buffer_density_PONG;
-
-		real_t* ptr_density = nullptr;
-	};
-
-	// Allocate 1 struct for each Computing Unit (4) that we have
-	std::array<KernelBuffers, NUM_CU> cu_buf;
+	// Tridiagonal sweeps on the TDMA_batch kernel of FPGA/XIlinx/ThomasVsPcr/Thomas (see thomas_accel.h)
+	Thomas_Accelerator thomas_fpga;
 
 	friend std::ostream& operator<<(std::ostream& os, const Microenvironment& S);  
 
@@ -256,36 +137,11 @@ class Microenvironment
 	   
 	std::vector< std::vector<bool> > dirichlet_activation_vectors; 
 
+	// 3-D LOD step with the sweeps on the accelerator (BioFVM_solvers.cpp)
 	void compute( void );
-
-	cl::Buffer make_bank_buffer(
-		int cu,
-		cl_mem_flags flags,
-		size_t size,
-		cl_int* err
-	);
-
-	void pack_density_cu_slice( 
-		real_t* density, 
-		unsigned int x_coord_size, // Real x_value
-		unsigned int x_coord_padded_size,  // Padded x_value (needed for memory alignment)
-		unsigned int y_coord_size,
-		unsigned int y_coord_padded_size,
-		unsigned int z_coord_size,
-		unsigned int component_offset,
-		unsigned int cu_num_components
-	);
-
-	void unpack_density_cu_slice(
-		real_t* density,
-		unsigned int x_coord_size,
-		unsigned int x_coord_padded_size,
-		unsigned int y_coord_size,
-		unsigned int y_coord_padded_size,
-		unsigned int z_coord_size,
-		unsigned int component_offset,
-		unsigned int cu_num_components
-	);
+	void thomas_sweep( int direction );
+	// BioFVM's CPU LOD step (fallback and verification)
+	void lod_3d_cpu( void );
 	
  public:
 	// Destroyer
@@ -294,8 +150,10 @@ class Microenvironment
 	void setup_opencl(
 		cl::Context* context,
 		cl::CommandQueue* q,
-		const std::array<cl::Kernel, NUM_CU>& kernels
+		const std::vector<cl::Kernel>& kernels
 	);
+	// Releases the accelerator buffers; call before the OpenCL context is destroyed.
+	void release_opencl( void );
 
 	void dump_density_to_file(const std::string& filename) const;
 

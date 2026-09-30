@@ -41,3 +41,7 @@ Thumbs.db
 # --- Optional: build directories (if you add them later) ---
 build/
 bin/
+
+# --- Xilinx emulation (make run TARGET=sw_emu|hw_emu) ---
+emconfig/
+.run/

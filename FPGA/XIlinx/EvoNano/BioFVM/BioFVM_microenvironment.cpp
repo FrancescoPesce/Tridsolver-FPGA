@@ -188,11 +188,14 @@ Microenvironment::Microenvironment(std::string name)
 void Microenvironment::setup_opencl(
     cl::Context* context,
     cl::CommandQueue* q,
-    const std::array<cl::Kernel, NUM_CU>& kernels
+    const std::vector<cl::Kernel>& kernels
 ) {
-    this->context = context;
-    this->q = q;
-    this->krnl_compute = kernels;
+    thomas_fpga.attach(context, q, kernels);
+}
+
+void Microenvironment::release_opencl( void )
+{
+    thomas_fpga.release();
 }
 
 void Microenvironment::dump_density_to_file(const std::string& filename) const
@@ -283,14 +286,7 @@ void Microenvironment::set_substrate_dirichlet_activation( int substrate_index ,
 bool Microenvironment::get_substrate_dirichlet_activation( int substrate_index, int index )
 { return dirichlet_activation_vectors[index][substrate_index]; }
 
-/*
-    In this section we are going to rewrite the apply_dirichlet_conditions
-    function into 3 steps:
-        - pack
-        - compute (kernel)
-        - unpack
-*/
-// OLD methods to keep 2D and 1D working
+// Host-side Dirichlet nodes (also applied between the accelerated sweeps of the 3-D solver)
 void Microenvironment::apply_dirichlet_conditions( void )
 {
 	/*
@@ -320,100 +316,6 @@ void Microenvironment::apply_dirichlet_conditions( void )
 		}
 	}
 	return; 
-}
-
-/*
-    Transform the code used variables from not supported Objects
-    (std::vector / classes / dynamic memory) to the types supported by
-    the FPGA.
-*/
-void Microenvironment::pack_density_cu_slice( 
-	real_t* density, 
-	unsigned int x_coord_size, // Real x_value
-    unsigned int x_coord_padded_size,  // Padded x_value (needed for memory alignment)
-    unsigned int y_coord_size,
-	unsigned int y_coord_padded_size,
-    unsigned int z_coord_size,
-	unsigned int component_offset,
-    unsigned int cu_num_components
-) {
-	if (density == nullptr) return;
-
-	int flat_idx = 0;
-
-	// Pack density - activation - target_value --> Property of substrates
-
-	for (unsigned int local_j = 0; local_j < cu_num_components; local_j++) {
-        unsigned int global_j = component_offset + local_j;
-        unsigned int real_idx = 0; // Reset in each new substrate
-
-        for (unsigned int z = 0; z < z_coord_size; z++) {
-            for (unsigned int y = 0; y < y_coord_padded_size; y++) {
-                for (unsigned int x = 0; x < x_coord_padded_size; x++) {
-                    if (x < x_coord_size && y < y_coord_size) {
-						// Real values
-                        const auto& voxel_density = density_vector(real_idx);
-
-						// Check if the component is present in the voxel
-                        if (global_j < voxel_density.size()) {
-                            density[flat_idx] = static_cast<real_t>(voxel_density[global_j]);
-                        } else {
-                            density[flat_idx] = static_cast<real_t>(0.0);
-                        }
-
-                        real_idx++;
-                    } else {
-						// Padded values
-                        density[flat_idx] = static_cast<real_t>(0.0);
-                    }
-
-                    flat_idx++;
-                }
-            }
-        }
-    }
-}
-
-/*
-    Assign back to the main class the density values
-*/
-void Microenvironment::unpack_density_cu_slice(
-	real_t* density,
-    unsigned int x_coord_size,
-    unsigned int x_coord_padded_size,
-    unsigned int y_coord_size,
-    unsigned int y_coord_padded_size,
-    unsigned int z_coord_size,
-    unsigned int component_offset,
-    unsigned int cu_num_components
-) {
-	if (density == nullptr) return;
-
-	// IDX used to read from the padded density
-	unsigned int flat_idx = 0;
-
-	for (unsigned int local_j = 0; local_j < cu_num_components; local_j++) {
-        unsigned int global_j = component_offset + local_j;
-        unsigned int real_idx = 0;
-
-        for (unsigned int z = 0; z < z_coord_size; z++) {
-            for (unsigned int y = 0; y < y_coord_padded_size; y++) {
-                for (unsigned int x = 0; x < x_coord_padded_size; x++) {
-                    if (x < x_coord_size && y < y_coord_size) {
-                        auto& voxel_density = density_vector(real_idx);
-
-                        if (global_j < voxel_density.size()) {
-                            voxel_density[global_j] = static_cast<double>(density[flat_idx]);
-                        }
-
-                        real_idx++;
-                    }
-
-                    flat_idx++;
-                }
-            }
-        }
-    }
 }
 
 void Microenvironment::resize_voxels( int new_number_of_voxes )

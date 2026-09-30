@@ -216,8 +216,8 @@ int main(int argc, char* argv[])
     cl::Context context_object;
     cl::CommandQueue q_object;
 
-    // kernels global variables
-    std::array<cl::Kernel, NUM_CU> krnl_compute_objects;
+    // kernels global variables: one cl::Kernel per TDMA_batch compute unit (ThomasVsPcr/Thomas xclbin)
+    std::vector<cl::Kernel> krnl_tdma_objects;
 
     cl::Program program_object;
 
@@ -272,11 +272,26 @@ int main(int argc, char* argv[])
 		} else {
 			std::cout << "Device[" << i << "]: program successful!\n";
 
-			for (int i = 0; i < NUM_CU; i++) {
-                std::string cu_name = "krnl_compute:{krnl_compute_" + std::to_string(i + 1) + "}";
-
-                OCL_CHECK(err, krnl_compute_objects[i] = cl::Kernel(program_object, cu_name.c_str(), &err));
-            }
+			// ThomasVsPcr/Thomas (TDMA_solver.cpp): TDMA_batch(a, b, c, d, u, M, N, B, iters),
+			// CUs TDMA_batch_1..TDMA_batch_n. ADI3D_F32 also has a TDMA_batch kernel, with 13 arguments.
+			cl_uint num_args = 0;
+			cl::Kernel tdma_all_cus(program_object, "TDMA_batch", &err);
+			if (err == CL_SUCCESS) {
+				OCL_CHECK(err, err = tdma_all_cus.getInfo(CL_KERNEL_NUM_ARGS, &num_args));
+			}
+			if (num_args != 9) {
+				std::cout << "Error: " << xclbinFilename << " does not contain the TDMA_batch kernel of FPGA/XIlinx/ThomasVsPcr/Thomas" << std::endl;
+				exit(EXIT_FAILURE);
+			}
+			cl_uint num_cus = 0;
+			OCL_CHECK(err, err = clGetKernelInfo(tdma_all_cus(), CL_KERNEL_COMPUTE_UNIT_COUNT, sizeof(num_cus), &num_cus, nullptr));
+			for (cl_uint cu = 1; cu <= num_cus; cu++) {
+				std::string cu_name = "TDMA_batch:{TDMA_batch_" + std::to_string(cu) + "}";
+				cl::Kernel krnl;
+				OCL_CHECK(err, krnl = cl::Kernel(program_object, cu_name.c_str(), &err));
+				krnl_tdma_objects.push_back(krnl);
+			}
+			std::cout << "Found " << num_cus << " TDMA_batch compute units" << std::endl;
 
 			valid_device = true;
 			break; // we break because we found a valid device
@@ -300,7 +315,7 @@ int main(int argc, char* argv[])
         XML_status = load_PhysiCell_config_file( argv[2] );
     } else {
         // Proviamo il percorso standard
-        XML_status = load_PhysiCell_config_file( "../../src/config/PhysiCell_settings.xml" );
+        XML_status = load_PhysiCell_config_file( "./config/PhysiCell_settings.xml" );
     }
 
     if( !XML_status ) {
@@ -319,7 +334,7 @@ int main(int argc, char* argv[])
 
     /* Microenvironment setup */
     setup_microenvironment(); // modify this in the custom code
-    microenvironment.setup_opencl(&context_object, &q_object, krnl_compute_objects);
+    microenvironment.setup_opencl(&context_object, &q_object, krnl_tdma_objects);
 
     /* PhysiCell setup */
 
@@ -548,6 +563,8 @@ int main(int argc, char* argv[])
     std::cout << std::endl << "Total simulation runtime: " << std::endl;
     BioFVM::display_stopwatch_value( std::cout , BioFVM::runtime_stopwatch_value() );
     std::cout << std::endl;
+
+    microenvironment.release_opencl();
 
     return EXIT_SUCCESS;
 }

@@ -44,29 +44,14 @@ ALL TIMES.
 *******************************************************************************/
 #pragma once
 
-static constexpr int NUM_CU = 3;
-static const int cu_to_slr_mapping[NUM_CU] = {0, 2, 3};
+#include <cstdio>
+#include <cstdlib>
+#include <new>
 
 #define CL_HPP_CL_1_2_DEFAULT_BUILD
 #define CL_HPP_TARGET_OPENCL_VERSION 120
 #define CL_HPP_MINIMUM_OPENCL_VERSION 120
 #define CL_HPP_ENABLE_PROGRAM_CONSTRUCTION_FROM_ARRAY_COMPATIBILITY 1
-
-// Defines used to pass a bitmask to the FPGA for dynamic reloading
-constexpr uint32_t RELOAD_DIRICHLET = 1u << 0;
-constexpr uint32_t RELOAD_THOMAS_X  = 1u << 1;
-constexpr uint32_t RELOAD_THOMAS_Y  = 1u << 2;
-constexpr uint32_t RELOAD_THOMAS_Z  = 1u << 3;
-constexpr uint32_t RELOAD_CONST1    = 1u << 4;
-constexpr uint32_t RELOAD_INIT      = 1u << 5;
-
-constexpr uint32_t RELOAD_ALL =
-    RELOAD_DIRICHLET |
-    RELOAD_THOMAS_X |
-    RELOAD_THOMAS_Y |
-    RELOAD_THOMAS_Z |
-    RELOAD_CONST1 |
-    RELOAD_INIT;
 
 #define OCL_CHECK(error, call)                                                                   \
     call;                                                                                        \
@@ -76,6 +61,7 @@ constexpr uint32_t RELOAD_ALL =
     }
 
 #include <CL/cl2.hpp>
+#include <CL/cl_ext_xilinx.h>
 
 //Customized buffer allocation for 4K boundary alignment
 template <typename T>

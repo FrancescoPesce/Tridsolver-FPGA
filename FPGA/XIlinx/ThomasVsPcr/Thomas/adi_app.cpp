@@ -264,15 +264,35 @@ int main(int argc, char* argv[]) {
 
 //    cl::Event event;
 
-  auto devices = xcl::get_xil_devices();
-  auto device = devices[1];
   cl_int err;
-  std::vector<cl::Platform> platform;
-  OCL_CHECK(err, err = cl::Platform::get(&platform));
-  cl_context_properties props[3] = {CL_CONTEXT_PLATFORM, (cl_context_properties)(platform[0])(), 0};
+  auto devices = xcl::get_xil_devices();
+  if (devices.empty()) {
+    std::cerr << "Error: no Xilinx accelerator devices were found" << std::endl;
+    return EXIT_FAILURE;
+  }
 
+  auto selected_device = devices.end();
+  for (auto device_it = devices.begin(); device_it != devices.end(); ++device_it) {
+    std::string candidate_name;
+    OCL_CHECK(err, candidate_name = device_it->getInfo<CL_DEVICE_NAME>(&err));
+    std::cout << "Available Xilinx device: " << candidate_name << std::endl;
+    if (candidate_name.find("u280") != std::string::npos ||
+        candidate_name.find("U280") != std::string::npos) {
+      selected_device = device_it;
+    }
+  }
+  if (selected_device == devices.end()) {
+    std::cerr << "Error: ThomasVsPcr/Thomas is built for a U280, but no U280 device was found"
+              << std::endl;
+    return EXIT_FAILURE;
+  }
 
-  OCL_CHECK(err, cl::Context context(device, props, NULL, NULL, &err));
+  auto device = *selected_device;
+  devices.assign(1, device);
+  std::cout << "Selected device: "
+            << device.getInfo<CL_DEVICE_NAME>(&err) << std::endl;
+
+  OCL_CHECK(err, cl::Context context(device, NULL, NULL, NULL, &err));
   OCL_CHECK(
       err,
       cl::CommandQueue q(context, device, CL_QUEUE_PROFILING_ENABLE | CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, &err));

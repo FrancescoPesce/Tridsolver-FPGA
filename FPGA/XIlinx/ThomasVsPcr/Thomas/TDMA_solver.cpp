@@ -128,7 +128,7 @@ static void interleaved_row_block8(hls::stream<uint256_dt> &stm_in, hls::stream<
 	}
 
 	uint256_dt tmp_M[DIM_MAX*N_CU*2];
-	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY latency=2
+	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY
 
 	ap_uint<18> NTilesp1 = register_it<int>(NTiles+1);
 	ap_uint<18> id = 0;
@@ -187,7 +187,7 @@ static void interleaved_row_col(hls::stream<uint256_dt> &in, hls::stream<uint256
 	NTiles = B;
 
 	uint256_dt tmp_M[DIM_MAX*DIM_MAX/8*2];
-	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY uram latency=2
+	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY uram
 	uint256_dt tmp;
 
 	ap_uint<18> NTilesp1 = register_it<int>(B+1);
@@ -249,7 +249,7 @@ static void undo_interleaved_row_block8(hls::stream<uint256_dt> &stm_in, hls::st
 		default: {TileX=XBlocks; TileY=N_CU; NTiles = (B*N+7)>>3; break;}
 	}
 	uint256_dt tmp_M[DIM_MAX*N_CU*2];
-	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY latency=2
+	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY
 	ap_uint<18> NTilesp1 = register_it<int>(NTiles+1);
 
 	ap_uint<18> id = 0;
@@ -311,7 +311,7 @@ static void interleaved_col_row(hls::stream<uint256_dt> &in, hls::stream<uint256
 
 
 	uint256_dt tmp_M[DIM_MAX*DIM_MAX/8*2];
-	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY uram latency=2
+	#pragma HLS RESOURCE variable=tmp_M core=XPM_MEMORY uram
 	uint256_dt tmp;
 
 	ap_uint<18> NTilesp1 = register_it<int>(B+1);
@@ -413,7 +413,7 @@ static void thomas_interleave(hls::stream<uint256_dt> &d_stm, hls::stream<uint25
 
 
 	uint256_dt  d2[N_MAX*N_BLK*2];
-	#pragma HLS RESOURCE variable=d2 core=XPM_MEMORY uram latency=2
+	#pragma HLS RESOURCE variable=d2 core=XPM_MEMORY uram
 	ap_uint<12> batd1 = 0;
 	ap_uint<6> id1 =0;
 	ap_uint<12> jd1 = 0;
@@ -473,8 +473,8 @@ static void thomas_forward(hls::stream<uint256_dt> &a_fw_stm, hls::stream<uint25
 	uint256_dt  c2_fw[N_MAX*N_BLK*2];
 	uint256_dt  d2_fw[N_MAX*N_BLK*2];
 
-	#pragma HLS RESOURCE variable=c2_fw core=XPM_MEMORY uram latency=2
-	#pragma HLS RESOURCE variable=d2_fw core=XPM_MEMORY uram latency=2
+	#pragma HLS RESOURCE variable=c2_fw core=XPM_MEMORY uram
+	#pragma HLS RESOURCE variable=d2_fw core=XPM_MEMORY uram
 
 
 	ap_uint<12> batd2 = 0;
@@ -591,7 +591,7 @@ static void thomas_backward(hls::stream<uint256_dt> &c2_fw_stm, hls::stream<uint
 		ap_uint<12> d0, ap_uint<12> B, int ReadLimit){
 
 	uint256_dt  u2[N_MAX*N_BLK*2];
-	#pragma HLS RESOURCE variable=u2 core=XPM_MEMORY uram = latency=2
+	#pragma HLS RESOURCE variable=u2 core=XPM_MEMORY uram
 
 	uint256_dt window_u2[N_BLK];
 
