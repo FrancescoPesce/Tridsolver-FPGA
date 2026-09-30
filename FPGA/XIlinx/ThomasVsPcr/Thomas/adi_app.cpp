@@ -336,13 +336,14 @@ int main(int argc, char* argv[]) {
   std::vector<cl_mem_ext_ptr_t>  buffer_acc1_ext(num_cus);
   std::vector<cl_mem_ext_ptr_t>  buffer_acc2_ext(num_cus);
 
+  // first entries: banks of TDMA_batch_1 in TDMA.ini (a: HBM[0:3], b: HBM[4:7], c: HBM[8:11], d: HBM[12:15], u: HBM[16:19])
   int da_index[12] = {0, 5, 12, 15, 22,14,18,20,24};
-  int db_index[12] = {1, 8, 13, 18, 23,14,18,20,24};
-  int dc_index[12] = {2, 9, 14, 19, 24,14,18,20,24};
+  int db_index[12] = {4, 8, 13, 18, 23,14,18,20,24};
+  int dc_index[12] = {8, 9, 14, 19, 24,14,18,20,24};
 
 
-  int dd_index[4]         = {3, 8,  16,  24};
-  int du_index[4]         = {4, 9,  17,  25};
+  int dd_index[4]         = {12, 8,  16,  24};
+  int du_index[4]         = {16, 9,  17,  25};
   int acc1_index[4]       = {2, 10, 18,  26};
   int acc2_index[4]       = {3, 11, 19,  27};
   int dbuffer1_index[4]   = {4, 12, 20,  28};

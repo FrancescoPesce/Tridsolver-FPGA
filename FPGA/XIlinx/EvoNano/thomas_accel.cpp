@@ -9,11 +9,11 @@ namespace {
 // TDMA_batch arguments (ThomasVsPcr/Thomas/TDMA_solver.cpp)
 enum TDMA_Arg { ARG_A = 0, ARG_B, ARG_C, ARG_D, ARG_U, ARG_M, ARG_N, ARG_BATCH, ARG_ITERS };
 
-const int kMaxLength = 128;            // N_MAX of the kernel
-// Systems per call: thomas_interleave computes (bat << 5) on an ap_uint<12>, which wraps after
-// 127 groups of 256 systems and makes the kernel read past its input (a hang on hardware).
+const int kMaxLength = 256;            // N_MAX of the kernel (pre_proc.h)
+// Systems per call. Bitstreams built before the (bat*N_BLK) fix in thomas_interleave wrap a
+// 12-bit counter after 127 groups of 256 systems and hang; fixed ones allow 4094 groups.
 const size_t kMaxRows = 127 * 256;
-const size_t kBankBytes = 256ul << 20; // TDMA.ini connects every argument to one 256 MB HBM bank
+const size_t kArgumentBytes = 1024ul << 20; // TDMA.ini connects every argument to 4 HBM banks
 
 size_t round_up( size_t value, size_t multiple ) { return ( value + multiple - 1 ) / multiple * multiple; }
 
@@ -136,10 +136,10 @@ bool Thomas_Accelerator::configure( int nx, int ny, int nz, const Coefficients& 
 	}
 	for( size_t cu = 0; cu < num_cus; cu++ )
 	{
-		if( bytes_per_cu[cu] > kBankBytes )
+		if( bytes_per_cu[cu] > kArgumentBytes )
 		{
-			reason = "the sweeps need " + std::to_string( bytes_per_cu[cu] >> 20 ) + " MB per argument, more than a "
-			       + std::to_string( kBankBytes >> 20 ) + " MB HBM bank";
+			reason = "the sweeps need " + std::to_string( bytes_per_cu[cu] >> 20 ) + " MiB per argument, more than the "
+			       + std::to_string( kArgumentBytes >> 20 ) + " MiB of HBM connected to it";
 			release_buffers();
 			return false;
 		}

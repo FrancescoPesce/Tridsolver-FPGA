@@ -2,8 +2,8 @@
 #ifndef __PRE_PROC_H__
 #define __PRE_PROC_H__
 
-#define N_MAX 128
-#define DIM_MAX 128
+#define N_MAX 256
+#define DIM_MAX 256
 #define RN_MAX 256
 #define MAX_Sys 32
 #define N_BLK 32

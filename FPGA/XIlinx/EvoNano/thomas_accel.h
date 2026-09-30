@@ -10,8 +10,9 @@
     solves the N*B float32 systems  a[i] u[i-1] + b[i] u[i] + c[i] u[i+1] = d[i]  (i = 0..M-1,
     a[0] and c[M-1] ignored) stored as consecutive rows of M elements. It only solves along the
     contiguous dimension and `iters` just repeats the same solve. Constraints (otherwise wrong
-    results or a hang): M % 16 == 0, M <= 128, N*B % 8 == 0 and N*B <= 32512 (127 groups of 256
-    systems; beyond that a 12-bit counter in thomas_interleave wraps).
+    results or a hang): M % 16 == 0, M <= N_MAX (256), N*B % 8 == 0, N <= 4095, B <= 16383 and
+    N*B <= 4094*256; bitstreams built before the (bat*N_BLK) fix in thomas_interleave also need
+    N*B <= 32512, which this driver always respects.
 
     Here it solves the three sweeps of BioFVM's 3-D LOD step. For every direction each
     (substrate, grid line) pair is one row, padded to M with decoupled identity rows
@@ -20,7 +21,7 @@
     and download() return when their device work has completed (like the q->finish() calls of the
     krnl_compute host), so the caller can time them. The rows are split into kernel calls of at
     most 32512 systems, spread over the compute units, and the buffers of all three sweeps stay on
-    the device (TDMA.ini: one 256 MB HBM bank per argument).
+    the device (TDMA.ini: 4 HBM banks, 1 GiB, per argument; 960 MiB for 256^3 and 5 substrates).
 */
 
 #include "vitis_common.h"

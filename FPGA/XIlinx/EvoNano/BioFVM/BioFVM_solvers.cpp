@@ -182,7 +182,7 @@ struct Sweep_Lines
     FPGA/XIlinx/ThomasVsPcr/Thomas. The kernel solves float32 systems along rows only: every sweep
     gathers the grid lines of all substrates into rows and scatters the solution back, and the
     Dirichlet nodes are applied on the host between the sweeps, as in BioFVM. Grids the kernel
-    cannot handle (more than 128 voxels along a direction) use BioFVM's CPU sweeps.
+    cannot handle (more than 256 voxels along a direction) use BioFVM's CPU sweeps.
 
     With DEBUG_PRINT the step is timed like the krnl_compute version (Ours/BioFVM/BioFVM_solvers.cpp):
     std::chrono around each phase, with the device work of a phase finished before its timer stops,

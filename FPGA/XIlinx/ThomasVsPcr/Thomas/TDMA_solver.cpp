@@ -444,7 +444,7 @@ static void thomas_interleave(hls::stream<uint256_dt> &d_stm, hls::stream<uint25
 			unsigned int offsetR = ((bat & 1) == 0) ?  N_MAX*N_BLK : 0;
 			unsigned int offsetW = ((bat & 1) == 0) ?  0 : N_MAX*N_BLK;
 
-			ap_uint<20> countr1 = register_it<int>((bat<<5) + i);
+			ap_uint<20> countr1 = register_it<int>((bat*N_BLK) + i); // bat<<5 wraps: ap_uint<12> shift
 			int count = countr1 * d0 + j;
 			uint256_dt  tmp_d;
 			if(count < ReadLimit){
