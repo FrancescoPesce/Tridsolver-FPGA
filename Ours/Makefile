@@ -49,6 +49,8 @@ XRT_INCDIR := -I$(XILINX_XRT)/include
 XRT_LFLAGS := -L$(XILINX_XRT)/lib -lxilinxopencl -lpthread -lrt
 
 COMPILE_COMMAND := $(CC) $(CFLAGS) $(XRT_INCDIR)
+# Objects depend on the headers they include (.d files), so header changes rebuild them.
+DEPFLAGS := -MMD -MP
 
 # krnl_compute accelerator
 TARGET ?= hw
@@ -91,104 +93,104 @@ endif
 # PhysiCell core components	
 
 PhysiCell_phenotype.o: ./core/PhysiCell_phenotype.cpp
-	$(COMPILE_COMMAND) -c ./core/PhysiCell_phenotype.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./core/PhysiCell_phenotype.cpp
 	
 PhysiCell_digital_cell_line.o: ./core/PhysiCell_digital_cell_line.cpp
-	$(COMPILE_COMMAND) -c ./core/PhysiCell_digital_cell_line.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./core/PhysiCell_digital_cell_line.cpp
 
 PhysiCell_cell.o: ./core/PhysiCell_cell.cpp
-	$(COMPILE_COMMAND) -c ./core/PhysiCell_cell.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./core/PhysiCell_cell.cpp 
 
 PhysiCell_cell_container.o: ./core/PhysiCell_cell_container.cpp
-	$(COMPILE_COMMAND) -c ./core/PhysiCell_cell_container.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./core/PhysiCell_cell_container.cpp 
 	
 PhysiCell_standard_models.o: ./core/PhysiCell_standard_models.cpp
-	$(COMPILE_COMMAND) -c ./core/PhysiCell_standard_models.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./core/PhysiCell_standard_models.cpp 
 	
 PhysiCell_utilities.o: ./core/PhysiCell_utilities.cpp
-	$(COMPILE_COMMAND) -c ./core/PhysiCell_utilities.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./core/PhysiCell_utilities.cpp 
 	
 PhysiCell_custom.o: ./core/PhysiCell_custom.cpp
-	$(COMPILE_COMMAND) -c ./core/PhysiCell_custom.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./core/PhysiCell_custom.cpp 
 	
 PhysiCell_constants.o: ./core/PhysiCell_constants.cpp
-	$(COMPILE_COMMAND) -c ./core/PhysiCell_constants.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./core/PhysiCell_constants.cpp 
 	
 # BioFVM core components (needed by PhysiCell)
 	
 BioFVM_vector.o: ./BioFVM/BioFVM_vector.cpp
-	$(COMPILE_COMMAND) -c ./BioFVM/BioFVM_vector.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./BioFVM/BioFVM_vector.cpp 
 
 BioFVM_agent_container.o: ./BioFVM/BioFVM_agent_container.cpp
-	$(COMPILE_COMMAND) -c ./BioFVM/BioFVM_agent_container.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./BioFVM/BioFVM_agent_container.cpp 
 	
 BioFVM_mesh.o: ./BioFVM/BioFVM_mesh.cpp
-	$(COMPILE_COMMAND) -c ./BioFVM/BioFVM_mesh.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./BioFVM/BioFVM_mesh.cpp 
 
 BioFVM_microenvironment.o: ./BioFVM/BioFVM_microenvironment.cpp
-	$(COMPILE_COMMAND) -c ./BioFVM/BioFVM_microenvironment.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./BioFVM/BioFVM_microenvironment.cpp 
 
 BioFVM_solvers.o: ./BioFVM/BioFVM_solvers.cpp
-	$(COMPILE_COMMAND) -c ./BioFVM/BioFVM_solvers.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./BioFVM/BioFVM_solvers.cpp 
 
 BioFVM_utilities.o: ./BioFVM/BioFVM_utilities.cpp
-	$(COMPILE_COMMAND) -c ./BioFVM/BioFVM_utilities.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./BioFVM/BioFVM_utilities.cpp 
 	
 BioFVM_basic_agent.o: ./BioFVM/BioFVM_basic_agent.cpp
-	$(COMPILE_COMMAND) -c ./BioFVM/BioFVM_basic_agent.cpp 
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./BioFVM/BioFVM_basic_agent.cpp 
 	
 BioFVM_matlab.o: ./BioFVM/BioFVM_matlab.cpp
-	$(COMPILE_COMMAND) -c ./BioFVM/BioFVM_matlab.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./BioFVM/BioFVM_matlab.cpp
 
 BioFVM_MultiCellDS.o: ./BioFVM/BioFVM_MultiCellDS.cpp
-	$(COMPILE_COMMAND) -c ./BioFVM/BioFVM_MultiCellDS.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./BioFVM/BioFVM_MultiCellDS.cpp
 	
 pugixml.o: ./BioFVM/pugixml.cpp
-	$(COMPILE_COMMAND) -c ./BioFVM/pugixml.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./BioFVM/pugixml.cpp
 	
 # standard PhysiCell modules
 
 PhysiCell_SVG.o: ./modules/PhysiCell_SVG.cpp
-	$(COMPILE_COMMAND) -c ./modules/PhysiCell_SVG.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./modules/PhysiCell_SVG.cpp
 
 PhysiCell_pathology.o: ./modules/PhysiCell_pathology.cpp
-	$(COMPILE_COMMAND) -c ./modules/PhysiCell_pathology.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./modules/PhysiCell_pathology.cpp
 
 PhysiCell_MultiCellDS.o: ./modules/PhysiCell_MultiCellDS.cpp
-	$(COMPILE_COMMAND) -c ./modules/PhysiCell_MultiCellDS.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./modules/PhysiCell_MultiCellDS.cpp
 
 PhysiCell_various_outputs.o: ./modules/PhysiCell_various_outputs.cpp
-	$(COMPILE_COMMAND) -c ./modules/PhysiCell_various_outputs.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./modules/PhysiCell_various_outputs.cpp
 
 	
 PhysiCell_pugixml.o: ./modules/PhysiCell_pugixml.cpp
-	$(COMPILE_COMMAND) -c ./modules/PhysiCell_pugixml.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./modules/PhysiCell_pugixml.cpp
 	
 PhysiCell_settings.o: ./modules/PhysiCell_settings.cpp
-	$(COMPILE_COMMAND) -c ./modules/PhysiCell_settings.cpp		
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./modules/PhysiCell_settings.cpp		
 	
 # user-defined PhysiCell modules
 
 evo_nano_3D.o: ./custom_modules/evo_nano_3D.cpp
-	$(COMPILE_COMMAND) -c ./custom_modules/evo_nano_3D.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./custom_modules/evo_nano_3D.cpp
 
 spexp.o: ./custom_modules/spexp.cpp
-	$(COMPILE_COMMAND) -c ./custom_modules/spexp.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./custom_modules/spexp.cpp
 
 cancc.o: ./custom_modules/cancc.cpp
-	$(COMPILE_COMMAND) -c ./custom_modules/cancc.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./custom_modules/cancc.cpp
 
 vascular.o: ./custom_modules/vascular.cpp
-	$(COMPILE_COMMAND) -c ./custom_modules/vascular.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./custom_modules/vascular.cpp
 
 healthyc.o: ./custom_modules/healthyc.cpp
-	$(COMPILE_COMMAND) -c ./custom_modules/healthyc.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./custom_modules/healthyc.cpp
 
 csvlog.o: ./custom_modules/csvlog.cpp
-	$(COMPILE_COMMAND) -c ./custom_modules/csvlog.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./custom_modules/csvlog.cpp
 
 utils.o: ./custom_modules/utils.cpp
-	$(COMPILE_COMMAND) -c ./custom_modules/utils.cpp
+	$(COMPILE_COMMAND) $(DEPFLAGS) -c ./custom_modules/utils.cpp
 
 # cleanup
 
@@ -203,7 +205,7 @@ utils.o: ./custom_modules/utils.cpp
 #	touch ./config/empty.txt
 	
 clean:
-	rm -rf *.o
+	rm -rf *.o *.d
 	rm -rf $(PROGRAM_NAME)*
 	rm -rf emconfig .run .Xil
 	
@@ -237,3 +239,5 @@ unzip:
 untar: 
 	cp ./archives/latest.tar .
 	tar -xzf latest.tar
+
+-include $(ALL_OBJECTS:.o=.d)
