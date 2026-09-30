@@ -56,7 +56,7 @@ COMPILE_COMMAND := $(CC) $(CFLAGS) $(XRT_INCDIR)
 # are rejected at startup.
 TARGET ?= hw
 PLATFORM ?= /opt/xilinx/platforms/xilinx_u280_gen3x16_xdma_1_202211_1/xilinx_u280_gen3x16_xdma_1_202211_1.xpfm
-XCLBIN ?= ../ThomasVsPcr/Thomas/build/TDMA_solver_$(TARGET).xclbin
+XCLBIN ?= bitstreams/TDMA_solver_$(TARGET).xclbin
 CONFIG ?= ./config/PhysiCell_settings.xml
 
 ACCEL_OBJECTS := thomas_accel.o
