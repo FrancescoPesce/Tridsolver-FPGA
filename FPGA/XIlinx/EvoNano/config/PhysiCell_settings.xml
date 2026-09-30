@@ -75,15 +75,15 @@
 <PhysiCell_settings version="devel-version">
 	<domain>
 		<dynamic_space_expansion>true</dynamic_space_expansion>
-		<x_min>-100</x_min>
-		<x_max>100</x_max>
-		<y_min>-100</y_min>
-		<y_max>100</y_max>
-		<z_min>-100</z_min>
-		<z_max>100</z_max>
-		<dx>20</dx>
-		<dy>20</dy>
-		<dz>20</dz>
+		<x_min>-128</x_min>
+		<x_max>128</x_max>
+		<y_min>-128</y_min>
+		<y_max>128</y_max>
+		<z_min>-128</z_min>
+		<z_max>128</z_max>
+		<dx>2</dx>
+		<dy>2</dy>
+		<dz>2</dz>
 		<use_2D>false</use_2D>
 		<max_size>100000</max_size>
 		<expansion_delta>30</expansion_delta>
@@ -91,7 +91,7 @@
 	</domain>
 	
 	<overall>
-		<max_time units="min">0.1</max_time> <!-- 1 h * 60 min -->				
+		<max_time units="min">0.02</max_time> <!-- 1 h * 60 min -->				
 		<time_units>min</time_units>
 		<space_units>micron</space_units>
 

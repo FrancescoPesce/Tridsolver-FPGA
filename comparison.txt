@@ -1,0 +1,21 @@
+THEIRS
+Setup time: 31 us
+Thomas setup time: 0 us
+Host Dirichlet time: 25699 us
+Density setup time: 26627 us
+Host-to-Device transfer time: 10176 us
+Kernel time: 27584 us
+Device-to-Host transfer time: 10907 us
+Density teardown time: 42332 us
+Compute time: 143462 us
+
+OURS
+Setup time: 64 us
+Dirichlet setup time: 0 us
+Thomas setup time: 0 us
+Density setup time: 64553 us
+Host-to-Device transfer time: 21972 us
+Kernel time: 44452 us
+Device-to-Host transfer time: 21311 us
+Density teardown time: 51967 us
+Compute time: 204459 us

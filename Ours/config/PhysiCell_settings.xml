@@ -81,9 +81,9 @@
 		<y_max>128</y_max>
 		<z_min>-128</z_min>
 		<z_max>128</z_max>
-		<dx>1</dx>
-		<dy>1</dy>
-		<dz>1</dz>
+		<dx>2</dx>
+		<dy>2</dy>
+		<dz>2</dz>
 		<use_2D>false</use_2D>
 		<max_size>100000</max_size>
 		<expansion_delta>30</expansion_delta>
