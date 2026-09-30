@@ -1,0 +1,2 @@
+CompileFlags:
+  Add: ["-I/opt/homebrew/opt/libomp/include", "-Xpreprocessor", "-fopenmp", "-std=c++11"]

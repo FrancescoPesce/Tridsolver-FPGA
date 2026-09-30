@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/*
+###############################################################################
+# If you use PhysiCell in your project, please cite PhysiCell and the version #
+# number, such as below:                                                      #
+#                                                                             #
+# We implemented and solved the model using PhysiCell (Version x.y.z) [1].    #
+#                                                                             #
+# [1] A Ghaffarizadeh, R Heiland, SH Friedman, SM Mumenthaler, and P Macklin, #
+#     PhysiCell: an Open Source Physics-Based Cell Simulator for Multicellu-  #
+#     lar Systems, PLoS Comput. Biol. 14(2): e1005991, 2018                   #
+#     DOI: 10.1371/journal.pcbi.1005991                                       #
+#                                                                             #
+# See VERSION.txt or call get_PhysiCell_version() to get the current version  #
+#     x.y.z. Call display_citations() to get detailed information on all cite-#
+#     able software used in your PhysiCell application.                       #
+#                                                                             #
+# Because PhysiCell extensively uses BioFVM, we suggest you also cite BioFVM  #
+#     as below:                                                               #
+#                                                                             #
+# We implemented and solved the model using PhysiCell (Version x.y.z) [1],    #
+# with BioFVM [2] to solve the transport equations.                           #
+#                                                                             #
+# [1] A Ghaffarizadeh, R Heiland, SH Friedman, SM Mumenthaler, and P Macklin, #
+#     PhysiCell: an Open Source Physics-Based Cell Simulator for Multicellu-  #
+#     lar Systems, PLoS Comput. Biol. 14(2): e1005991, 2018                   #
+#     DOI: 10.1371/journal.pcbi.1005991                                       #
+#                                                                             #
+# [2] A Ghaffarizadeh, SH Friedman, and P Macklin, BioFVM: an efficient para- #
+#     llelized diffusive transport solver for 3-D biological simulations,     #
+#     Bioinformatics 32(8): 1256-8, 2016. DOI: 10.1093/bioinformatics/btv730  #
+#                                                                             #
+###############################################################################
+#                                                                             #
+# BSD 3-Clause License (see https://opensource.org/licenses/BSD-3-Clause)     #
+#                                                                             #
+# Copyright (c) 2015-2018, Paul Macklin and the PhysiCell Project             #
+# All rights reserved.                                                        #
+#                                                                             #
+# Redistribution and use in source and binary forms, with or without          #
+# modification, are permitted provided that the following conditions are met: #
+#                                                                             #
+# 1. Redistributions of source code must retain the above copyright notice,   #
+# this list of conditions and the following disclaimer.                       #
+#                                                                             #
+# 2. Redistributions in binary form must reproduce the above copyright        #
+# notice, this list of conditions and the following disclaimer in the         #
+# documentation and/or other materials provided with the distribution.        #
+#                                                                             #
+# 3. Neither the name of the copyright holder nor the names of its            #
+# contributors may be used to endorse or promote products derived from this   #
+# software without specific prior written permission.                         #
+#                                                                             #
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" #
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE   #
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE  #
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE   #
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR         #
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF        #
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS    #
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN     #
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)     #
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE  #
+# POSSIBILITY OF SUCH DAMAGE.                                                 #
+#                                                                             #
+###############################################################################
+*/
+--> 
+
+<!--
+<user_details />
+-->
+
+<PhysiCell_settings version="devel-version">
+	<domain>
+		<dynamic_space_expansion>true</dynamic_space_expansion>
+		<x_min>-128</x_min>
+		<x_max>128</x_max>
+		<y_min>-128</y_min>
+		<y_max>128</y_max>
+		<z_min>-128</z_min>
+		<z_max>128</z_max>
+		<dx>1</dx>
+		<dy>1</dy>
+		<dz>1</dz>
+		<use_2D>false</use_2D>
+		<max_size>100000</max_size>
+		<expansion_delta>30</expansion_delta>
+		<critical_proximity>20</critical_proximity>
+	</domain>
+	
+	<overall>
+		<max_time units="min">0.02</max_time> <!-- 1 h * 60 min -->				
+		<time_units>min</time_units>
+		<space_units>micron</space_units>
+
+		<dt_diffusion units="min">0.01</dt_diffusion>
+		<dt_mechanics units="min">0.1</dt_mechanics>
+		<dt_phenotype units="min">6</dt_phenotype>
+	</overall>
+	
+	<parallel>
+		<omp_num_threads>20</omp_num_threads>
+	</parallel> 
+	
+	<save>
+		<folder>/home/francesco.pesce/EvoNanoFPGAAldrigo/PhysiCell_Acceleration/src/output</folder> <!-- use . for root --> 
+
+		<full_data>
+			<interval units="min">0.01</interval>
+			<enable>true</enable>
+		</full_data>
+		
+		<SVG>
+			<interval units="min">0.01</interval>
+			<enable>true</enable>
+		</SVG>
+		
+		<legacy_data>
+			<enable>false</enable>
+		</legacy_data>
+	</save>
+
+	<options>
+		<legacy_random_points_on_sphere_in_divide>false</legacy_random_points_on_sphere_in_divide>
+	</options>
+	
+	<microenvironment_setup>
+		<variable name="oxygen" units="mmHg" ID="0">
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">10000.0</diffusion_coefficient>
+				<decay_rate units="1/min">.1</decay_rate> 
+			</physical_parameter_set>
+			<initial_condition units="mmHg">38.0</initial_condition>
+			<Dirichlet_boundary_condition units="mmHg" enabled="true">38.0</Dirichlet_boundary_condition>
+		</variable>
+		
+		<variable name="angiogen" units="particles/micron^3" ID="1">
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">10</diffusion_coefficient>
+				<decay_rate units="1/min">0.8</decay_rate> 
+			</physical_parameter_set>
+			<initial_condition units="particles/micron^3">0.0</initial_condition>
+			<Dirichlet_boundary_condition units="particles/micron^3" enabled="false">0.0</Dirichlet_boundary_condition>
+		</variable>
+
+		<variable name="NP" units="particles/micron^3" ID="2">
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">10</diffusion_coefficient>
+				<decay_rate units="1/min">0.4</decay_rate> 
+			</physical_parameter_set>
+			<initial_condition units="mmHg">0.0</initial_condition>
+			<Dirichlet_boundary_condition units="particles/micron^3" enabled="false">0.0</Dirichlet_boundary_condition>
+		</variable>
+
+		<variable name="cytokine" units="particles/micron^3" ID="3">
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">10</diffusion_coefficient>
+				<decay_rate units="1/min">0.6</decay_rate> 
+			</physical_parameter_set>
+			<initial_condition units="particles/micron^3">0.0</initial_condition>
+			<Dirichlet_boundary_condition units="particles/micron^3" enabled="false">0.0</Dirichlet_boundary_condition>
+		</variable>
+
+		<variable name="prostaglandin" units="particles/micron^3" ID="4">
+			<physical_parameter_set>
+				<diffusion_coefficient units="micron^2/min">10</diffusion_coefficient>
+				<decay_rate units="1/min">0.5</decay_rate> 
+			</physical_parameter_set>
+			<initial_condition units="particles/micron^3">0.0</initial_condition>
+			<Dirichlet_boundary_condition units="particles/micron^3" enabled="false">0.0</Dirichlet_boundary_condition>
+		</variable>
+
+		<options>
+			<calculate_gradients>true</calculate_gradients>
+			<track_internalized_substrates_in_each_agent>true</track_internalized_substrates_in_each_agent>
+			<!-- not yet supported --> 
+			<initial_condition type="matlab" enabled="false">
+				<filename>./config/initial.mat</filename>
+			</initial_condition>
+			<!-- not yet supported --> 
+			<dirichlet_nodes type="matlab" enabled="false">
+				<filename>./config/dirichlet.mat</filename>
+			</dirichlet_nodes>
+		</options>
+	</microenvironment_setup>
+
+	<user_parameters>
+		<!-- phase 1: NP -->
+		<NP_active type="bool">true</NP_active>
+
+		<!-- phase 2: prostaglandin-->
+		<prostaglandin_active type="bool">true</prostaglandin_active>
+
+		<!-- phase 3: CAF -->
+		<CAF_active type="bool">true</CAF_active>
+
+		<random_seed type="int" units="dimensionless">1</random_seed>
+
+		<random_cancer_cells type="int" units="dimensionless">5</random_cancer_cells>
+		
+		<random_healthy_cells type="int" units="dimensionless">5</random_healthy_cells>
+		<random_healthy_cells_expansion_factor type="double" units="dimensionless">1</random_healthy_cells_expansion_factor> 
+		<!-- num_HC = random_healthy_cells * pow(num_expansions, expansion_factor) -->
+
+		<!-- cancer cell properties -->
+		<cancer_cell_persistence_time type="double" units="min">15</cancer_cell_persistence_time>
+		<cancer_cell_migration_speed type="double" units="micron/min">0.25</cancer_cell_migration_speed>
+		<cancer_cell_relative_adhesion type="double" units="dimensionless">0.05</cancer_cell_relative_adhesion>
+		<cancer_cell_apoptosis_rate type="double" units="1/min">4.065e-5</cancer_cell_apoptosis_rate>
+		<cancer_cell_division_rate type="double" units="dimensionless">0.005</cancer_cell_division_rate>
+
+		<!-- set to false to exclude cancer stem cells from the simulation -->
+		<cancer_stem_cells_enabled type="bool">true</cancer_stem_cells_enabled>  
+
+		<!-- the probability for making a cancer stem cell in regular cancer cell divsions -->
+		<CSC_probability_CC_division type="double">0.05</CSC_probability_CC_division>
+		
+		<!-- the probability for symmetric division of a cancer stem cell -->
+		<symmetric_division_probability type="double">0.01</symmetric_division_probability>
+		
+		<!-- the probability that two ordinary CC will be made when symmetrically dividing a CSC-->
+		<symmetric_division_double_CC_probability type="double">0.01</symmetric_division_double_CC_probability>  
+
+		<!-- cancer stem cell properties -->
+		<cancer_stem_cell_persistence_time type="double" units="min">15</cancer_stem_cell_persistence_time>
+		<cancer_stem_cell_migration_speed type="double" units="micron/min">0.25</cancer_stem_cell_migration_speed>
+		<cancer_stem_cell_relative_adhesion type="double" units="dimensionless">0.05</cancer_stem_cell_relative_adhesion>
+		<cancer_stem_cell_apoptosis_rate type="double" units="1/min">0.0</cancer_stem_cell_apoptosis_rate>
+		<cancer_stem_cell_division_rate type="double" units="dimensionless">0.005</cancer_stem_cell_division_rate>
+		<cancer_stem_cell_o2_necrosis_threshold type="double" units="dimensionless">-10.0</cancer_stem_cell_o2_necrosis_threshold>
+		<cancer_stem_cell_o2_necrosis_max type="double" units="dimensionless">-10.0</cancer_stem_cell_o2_necrosis_max>
+
+		<CSC_detachment_probability type="double" units="dimensionless">0.2</CSC_detachment_probability>
+		<CSC_detachment_critical_proximity type="double" units="dimensionless">40</CSC_detachment_critical_proximity>
+
+		<!-- vascular network properties -->
+		<vascular_seed_points type="int" units="dimensionless">4</vascular_seed_points>
+		<vascular_chain_max_length type="int" units="dimensionless">1</vascular_chain_max_length>
+		<vascularity_branching_factor type="double" units="dimensionless">0.1</vascularity_branching_factor>
+		<vascularity_max_branching_depth type="int" units="dimensionless">2</vascularity_max_branching_depth>
+		<initial_vascularity_expansion_probability type="double" units="dimensionless">0.1</initial_vascularity_expansion_probability>
+		<expand_vascularity_when_expanding_space type="bool" units="dimensionless">true</expand_vascularity_when_expanding_space>
+		
+		<expansion_scale_factor type="double" unit="dimensionless">2</expansion_scale_factor>  
+		<!-- num_seeds = vascular_seed_points * pow(num_expansions, expansion_scale_factor), i.e. pow(...) is seed multiplier -->
+
+
+		<!-- angiogen properties -->
+		<print_angiogen_report type="bool" units="dimensionless">false</print_angiogen_report>
+		<angiogen_in_cancer_cell type="double" units="dimensionless">100</angiogen_in_cancer_cell>
+		<vascular_cell_angiogen_threshold type="double" units="dimensionless">0.0001</vascular_cell_angiogen_threshold>
+		<vascular_cell_expansion_probability type="double" units="dimensionless">0.01</vascular_cell_expansion_probability>
+
+		<!-- NP properties -->
+		<cancer_cells_to_activate_NP type="int" unit="dimensionless">5000</cancer_cells_to_activate_NP>
+		<NP_in_vascular_cell type="double" units="dimensionless">10</NP_in_vascular_cell>
+		<healthy_cell_NP_resistance type="double" units="dimensionless">0.7</healthy_cell_NP_resistance>
+		<cancer_cell_NP_resistance_lower_bound type="double" unit="dimensionless">0.3</cancer_cell_NP_resistance_lower_bound>
+		<cancer_cell_NP_resistance_upper_bound type="double" unit="dimensionless">0.5</cancer_cell_NP_resistance_upper_bound>
+		<cancer_stem_cell_NP_resistance_lower_bound type="double" unit="dimensionless">0.5</cancer_stem_cell_NP_resistance_lower_bound>
+		<cancer_stem_cell_NP_resistance_upper_bound type="double" unit="dimensionless">0.7</cancer_stem_cell_NP_resistance_upper_bound>
+
+		<!-- CAF properties -->
+		<cytokine_in_CAF type="double" units="dimensionless">1</cytokine_in_CAF>
+		<cancer_cell_cytokine_resistance type="double" unit="dimensionless">0.01</cancer_cell_cytokine_resistance>
+		<CAF_vascular_ratio type="double" unit="dimensionless">0.1</CAF_vascular_ratio>
+
+		<!-- prostaglandin properties -->
+		<prostaglandin_in_cancer_cell type="double" units="dimensionless">0.1</prostaglandin_in_cancer_cell>
+		<cancer_cell_prostaglandin_thr type="double" unit="dimensionless">1</cancer_cell_prostaglandin_thr>
+		
+	</user_parameters>
+	
+	
+</PhysiCell_settings>
