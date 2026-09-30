@@ -177,12 +177,14 @@ class Microenvironment
 		=====  DENSITY  =====
 		=====================
 		*/
-		size_t cap_flat_density_size = 0;
+		size_t cap_flat_density_size = 0; // size of PING/PONG, exactly the transferred bytes
 
 		cl::Buffer buffer_density_PING;
 		cl::Buffer buffer_density_PONG;
 
-		real_t* ptr_density = nullptr;
+		// PING/PONG stay mapped (see compute())
+		real_t* ptr_density_PING = nullptr;
+		real_t* ptr_density_PONG = nullptr;
 	};
 
 	// Allocate 1 struct for each Computing Unit (4) that we have

@@ -624,12 +624,16 @@ void Microenvironment::compute() {
 			static_cast<size_t>(num_padded_voxels) *
 			static_cast<size_t>(cu_buf[cu].cu_num_components);
 
-		// If the size has changed, re-allocate CU buffers.
-		if (cu_density_size_bytes > cu_buf[cu].cap_flat_density_size) {
-			cu_buf[cu].cap_flat_density_size =
-				cu_density_size_bytes +
-				cu_density_size_bytes / 2 +
-				64;
+		// PING/PONG are exactly cu_density_size_bytes, since enqueueMigrateMemObjects moves whole
+		// buffers, and stay mapped: XRT syncs a buffer resident on the device when it is mapped
+		// (unless the map invalidates it) and when a write mapping is unmapped, so mapping them
+		// every step would move the density three more times.
+		if (cu_density_size_bytes != cu_buf[cu].cap_flat_density_size) {
+			if (cu_buf[cu].ptr_density_PING != nullptr) {
+				OCL_CHECK(err, err = q->enqueueUnmapMemObject(cu_buf[cu].buffer_density_PING, cu_buf[cu].ptr_density_PING));
+				OCL_CHECK(err, err = q->enqueueUnmapMemObject(cu_buf[cu].buffer_density_PONG, cu_buf[cu].ptr_density_PONG));
+			}
+			cu_buf[cu].cap_flat_density_size = cu_density_size_bytes;
 
 			OCL_CHECK(err,
 				cu_buf[cu].buffer_density_PING =
@@ -664,24 +668,38 @@ void Microenvironment::compute() {
 					cu_buf[cu].buffer_density_PONG
 				)
 			);
+
+			OCL_CHECK(err,
+				cu_buf[cu].ptr_density_PING =
+					(real_t*)q->enqueueMapBuffer(
+						cu_buf[cu].buffer_density_PING,
+						CL_TRUE,
+						CL_MAP_WRITE_INVALIDATE_REGION,
+						0,
+						cu_density_size_bytes,
+						NULL,
+						NULL,
+						&err
+					)
+			);
+
+			OCL_CHECK(err,
+				cu_buf[cu].ptr_density_PONG =
+					(real_t*)q->enqueueMapBuffer(
+						cu_buf[cu].buffer_density_PONG,
+						CL_TRUE,
+						CL_MAP_READ,
+						0,
+						cu_density_size_bytes,
+						NULL,
+						NULL,
+						&err
+					)
+			);
 		}
 
-		OCL_CHECK(err,
-			cu_buf[cu].ptr_density =
-				(real_t*)q->enqueueMapBuffer(
-					cu_buf[cu].buffer_density_PING,
-					CL_TRUE,
-					CL_MAP_WRITE,
-					0,
-					cu_density_size_bytes,
-					NULL,
-					NULL,
-					&err
-				)
-		);
-
 		pack_density_cu_slice(
-			cu_buf[cu].ptr_density,
+			cu_buf[cu].ptr_density_PING,
 			curr_x_coord_size,
 			curr_x_coord_padded_size,
 			curr_y_coord_size,
@@ -689,13 +707,6 @@ void Microenvironment::compute() {
 			curr_z_coord_size,
 			static_cast<unsigned int>(comp_offset[cu]),
 			static_cast<unsigned int>(cu_buf[cu].cu_num_components)
-		);
-
-		OCL_CHECK(err,
-			err = q->enqueueUnmapMemObject(
-				cu_buf[cu].buffer_density_PING,
-				cu_buf[cu].ptr_density
-			)
 		);
 	}
 
@@ -788,27 +799,8 @@ void Microenvironment::compute() {
 			continue;
 		}
 
-		size_t cu_density_size_bytes =
-			sizeof(real_t) *
-			static_cast<size_t>(num_padded_voxels) *
-			static_cast<size_t>(cu_buf[cu].cu_num_components);
-
-		OCL_CHECK(err,
-			cu_buf[cu].ptr_density =
-				(real_t*)q->enqueueMapBuffer(
-					cu_buf[cu].buffer_density_PONG,
-					CL_TRUE,
-					CL_MAP_READ,
-					0,
-					cu_density_size_bytes,
-					NULL,
-					NULL,
-					&err
-				)
-		);
-
 		unpack_density_cu_slice(
-			cu_buf[cu].ptr_density,
+			cu_buf[cu].ptr_density_PONG,
 			curr_x_coord_size,
 			curr_x_coord_padded_size,
 			curr_y_coord_size,
@@ -816,13 +808,6 @@ void Microenvironment::compute() {
 			curr_z_coord_size,
 			static_cast<unsigned int>(comp_offset[cu]),
 			static_cast<unsigned int>(cu_buf[cu].cu_num_components)
-		);
-
-		OCL_CHECK(err,
-			err = q->enqueueUnmapMemObject(
-				cu_buf[cu].buffer_density_PONG,
-				cu_buf[cu].ptr_density
-			)
 		);
 	}
 
