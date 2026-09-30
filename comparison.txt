@@ -1,21 +1,33 @@
 THEIRS
-Setup time: 31 us
-Thomas setup time: 0 us
-Host Dirichlet time: 25699 us
-Density setup time: 26627 us
-Host-to-Device transfer time: 10176 us
-Kernel time: 27584 us
-Device-to-Host transfer time: 10907 us
-Density teardown time: 42332 us
-Compute time: 143462 us
+Start compute: 2026-09-30T16:22:23.802260
+Setup time: 52 us
+Thomas setup time: 7 us
+Start kernel: 2026-09-30T16:22:23.958302
+End kernel: 2026-09-30T16:22:24.030526
+Start kernel: 2026-09-30T16:22:24.235110
+End kernel: 2026-09-30T16:22:24.307318
+Start kernel: 2026-09-30T16:22:24.623409
+End kernel: 2026-09-30T16:22:24.695599
+Host Dirichlet time: 133520 us
+Density setup time: 284447 us
+Host-to-Device transfer time: 84095 us
+Kernel time: 216626 us
+Device-to-Host transfer time: 85903 us
+Density teardown time: 309431 us
+Compute time: 1114263 us
+End compute: 2026-09-30T16:22:24.916532
 
 OURS
-Setup time: 64 us
+Start compute: 2026-09-30T17:40:34.104933
+Setup time: 69 us
 Dirichlet setup time: 0 us
 Thomas setup time: 0 us
-Density setup time: 64553 us
-Host-to-Device transfer time: 21972 us
-Kernel time: 44452 us
-Device-to-Host transfer time: 21311 us
-Density teardown time: 51967 us
-Compute time: 204459 us
+Density setup time: 209315 us
+Host-to-Device transfer time: 27380 us
+Start kernel: 2026-09-30T17:40:34.341750
+Kernel time: 87625 us
+End kernel: 2026-09-30T17:40:34.429393
+Device-to-Host transfer time: 26889 us
+Density teardown time: 218288 us
+Compute time: 569710 us
+End compute: 2026-09-30T17:40:34.674643
